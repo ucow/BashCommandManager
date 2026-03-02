@@ -3,6 +3,7 @@
            xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
            xmlns:hc="https://handyorg.github.io/handycontrol"
            xmlns:vm="clr-namespace:BashCommandManager.ViewModels"
+           xmlns:local="clr-namespace:BashCommandManager.Infrastructure.Controls"
            Title="批处理命令管理器"
            Height="600" Width="900"
            WindowStartupLocation="CenterScreen">
@@ -43,23 +44,24 @@
                           SelectedItemChanged="GroupTree_SelectedItemChanged">
                     <TreeView.ItemTemplate>
                         <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{Binding Name}"/>
-                            </StackPanel>
+                            <local:EditableTextBlock Text="{Binding Name}"
+                                                     IsEditing="{Binding IsEditing, Mode=TwoWay}"
+                                                     Command="{Binding DataContext.GroupTreeViewModel.FinishRenameCommand, RelativeSource={RelativeSource AncestorType=TreeView}}"
+                                                     CommandParameter="{Binding}"/>
                         </HierarchicalDataTemplate>
                     </TreeView.ItemTemplate>
                     <TreeView.ContextMenu>
                         <ContextMenu>
                             <MenuItem Header="新建子分组"
                                       Command="{Binding DataContext.GroupTreeViewModel.CreateGroupCommand, RelativeSource={RelativeSource AncestorType=TreeView}}"
-                                      CommandParameter="{Binding Id}"/>
+                                      CommandParameter="{Binding}"/>
                             <MenuItem Header="重命名"
                                       Command="{Binding DataContext.GroupTreeViewModel.RenameGroupCommand, RelativeSource={RelativeSource AncestorType=TreeView}}"
-                                      CommandParameter="{Binding Id}"/>
+                                      CommandParameter="{Binding}"/>
                             <Separator/>
                             <MenuItem Header="删除"
                                       Command="{Binding DataContext.GroupTreeViewModel.DeleteGroupCommand, RelativeSource={RelativeSource AncestorType=TreeView}}"
-                                      CommandParameter="{Binding Id}"/>
+                                      CommandParameter="{Binding}"/>
                         </ContextMenu>
                     </TreeView.ContextMenu>
                 </TreeView>

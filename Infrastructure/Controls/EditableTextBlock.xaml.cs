@@ -17,6 +17,9 @@ public partial class EditableTextBlock : UserControl
     public static readonly DependencyProperty CommandProperty =
         DependencyProperty.Register(nameof(Command), typeof(ICommand), typeof(EditableTextBlock));
 
+    public static readonly DependencyProperty CommandParameterProperty =
+        DependencyProperty.Register(nameof(CommandParameter), typeof(object), typeof(EditableTextBlock));
+
     private string _originalText = string.Empty;
 
     public EditableTextBlock()
@@ -40,6 +43,12 @@ public partial class EditableTextBlock : UserControl
     {
         get => (ICommand)GetValue(CommandProperty);
         set => SetValue(CommandProperty, value);
+    }
+
+    public object CommandParameter
+    {
+        get => GetValue(CommandParameterProperty);
+        set => SetValue(CommandParameterProperty, value);
     }
 
     private static void OnIsEditingChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -101,9 +110,9 @@ public partial class EditableTextBlock : UserControl
 
         IsEditing = false;
 
-        if (save && Command != null && Command.CanExecute(Text))
+        if (save && Command != null && Command.CanExecute(CommandParameter))
         {
-            Command.Execute(Text);
+            Command.Execute(CommandParameter);
         }
     }
 }

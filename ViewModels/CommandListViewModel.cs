@@ -35,7 +35,7 @@ public partial class CommandListViewModel : ObservableObject
     public async Task ImportCommandAsync(int groupId)
     {
         var command = await _commandService.ImportCommandAsync(groupId);
-        if (command != null && Commands.Any())
+        if (command != null)
         {
             Commands.Add(command);
         }

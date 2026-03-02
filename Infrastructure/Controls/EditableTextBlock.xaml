@@ -1,0 +1,20 @@
+<UserControl x:Class="BashCommandManager.Infrastructure.Controls.EditableTextBlock"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:hc="https://handyorg.github.io/handycontrol"
+             x:Name="Root">
+    <Grid>
+        <TextBlock x:Name="DisplayText"
+                   Text="{Binding Text, ElementName=Root}"
+                   VerticalAlignment="Center"
+                   MouseLeftButtonDown="DisplayText_MouseLeftButtonDown"
+                   Visibility="{Binding IsEditing, ElementName=Root, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Inverted}"/>
+        <TextBox x:Name="EditText"
+                 Text="{Binding Text, ElementName=Root, UpdateSourceTrigger=PropertyChanged}"
+                 VerticalAlignment="Center"
+                 Visibility="{Binding IsEditing, ElementName=Root, Converter={StaticResource BooleanToVisibilityConverter}}"
+                 LostFocus="EditText_LostFocus"
+                 KeyDown="EditText_KeyDown"
+                 Loaded="EditText_Loaded"/>
+    </Grid>
+</UserControl>

@@ -62,10 +62,21 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task ImportCommandAsync()
     {
-        if (GroupTreeViewModel.SelectedGroup == null) return;
+        try
+        {
+            if (GroupTreeViewModel.SelectedGroup == null)
+            {
+                System.Windows.MessageBox.Show("请先选择一个分组", "提示");
+                return;
+            }
 
-        await CommandListViewModel.ImportCommandAsync(GroupTreeViewModel.SelectedGroup.Id);
-        UpdateStatus();
+            await CommandListViewModel.ImportCommandAsync(GroupTreeViewModel.SelectedGroup.Id);
+            UpdateStatus();
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show($"导入失败: {ex.Message}", "错误");
+        }
     }
 
     private void UpdateStatus()

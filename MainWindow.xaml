@@ -50,14 +50,14 @@
                     </TreeView.ItemTemplate>
                     <TreeView.ContextMenu>
                         <ContextMenu>
-                            <MenuItem Header="New Subgroup"
+                            <MenuItem Header="新建子分组"
                                       Command="{Binding DataContext.GroupTreeViewModel.CreateGroupCommand, RelativeSource={RelativeSource AncestorType=TreeView}}"
                                       CommandParameter="{Binding Id}"/>
-                            <MenuItem Header="Rename"
+                            <MenuItem Header="重命名"
                                       Command="{Binding DataContext.GroupTreeViewModel.RenameGroupCommand, RelativeSource={RelativeSource AncestorType=TreeView}}"
                                       CommandParameter="{Binding Id}"/>
                             <Separator/>
-                            <MenuItem Header="Delete"
+                            <MenuItem Header="删除"
                                       Command="{Binding DataContext.GroupTreeViewModel.DeleteGroupCommand, RelativeSource={RelativeSource AncestorType=TreeView}}"
                                       CommandParameter="{Binding Id}"/>
                         </ContextMenu>

@@ -93,15 +93,15 @@
                                                 Orientation="Horizontal"
                                                 VerticalAlignment="Center"
                                                 Margin="10">
-                                        <Button Content="Run"
+                                        <Button Content="运行"
                                                 Command="{Binding DataContext.CommandListViewModel.ExecuteCommandCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                 CommandParameter="{Binding}"
                                                 Margin="0,0,5,0"/>
-                                        <Button Content="Run as Admin"
+                                        <Button Content="管理员运行"
                                                 Command="{Binding DataContext.CommandListViewModel.ExecuteAsAdminCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                 CommandParameter="{Binding}"
                                                 Margin="0,0,5,0"/>
-                                        <Button Content="Delete"
+                                        <Button Content="删除"
                                                 Command="{Binding DataContext.CommandListViewModel.DeleteCommandCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                 CommandParameter="{Binding}"
                                                 Style="{StaticResource ButtonDanger}"/>

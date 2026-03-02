@@ -1,0 +1,21 @@
+# Worktrees
+.worktrees/
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+
+# IDE
+.vs/
+.vscode/
+.idea/
+
+# SQLite
+data/
+*.db
+
+# Build artifacts
+publish/
+out/

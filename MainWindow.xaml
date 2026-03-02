@@ -54,7 +54,7 @@
                         <ContextMenu>
                             <MenuItem Header="新建子分组"
                                       Command="{Binding DataContext.GroupTreeViewModel.CreateGroupCommand, RelativeSource={RelativeSource AncestorType=TreeView}}"
-                                      CommandParameter="{Binding}"/>
+                                      CommandParameter="{Binding Id}"/>
                             <MenuItem Header="重命名"
                                       Command="{Binding DataContext.GroupTreeViewModel.RenameGroupCommand, RelativeSource={RelativeSource AncestorType=TreeView}}"
                                       CommandParameter="{Binding}"/>

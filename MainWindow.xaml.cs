@@ -16,6 +16,15 @@ public partial class MainWindow : HandyControl.Controls.Window
         {
             await viewModel.GroupTreeViewModel.LoadGroupsAsync();
         };
+
+        // 设置 ContextMenu 的 DataContext
+        GroupTree.ContextMenuOpening += (s, e) =>
+        {
+            if (GroupTree.ContextMenu != null)
+            {
+                GroupTree.ContextMenu.DataContext = DataContext;
+            }
+        };
     }
 
     private void GroupTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)

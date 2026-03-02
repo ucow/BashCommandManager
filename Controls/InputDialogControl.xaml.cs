@@ -6,7 +6,7 @@ using System.Windows.Controls;
 
 namespace BashCommandManager.Controls;
 
-public partial class InputDialogControl : UserControl, IDialogResultable<string>
+public partial class InputDialogControl : UserControl, IDialogResultable<string?>
 {
     public InputDialogControl()
     {
@@ -42,7 +42,7 @@ public partial class InputDialogControl : UserControl, IDialogResultable<string>
         set => InputTextBox.Text = value;
     }
 
-    public string Result { get; set; } = string.Empty;
+    public string? Result { get; set; } = null;
 
     public Action CloseAction { get; set; } = () => { };
 
@@ -54,7 +54,7 @@ public partial class InputDialogControl : UserControl, IDialogResultable<string>
 
     private void OnCancelClick(object sender, RoutedEventArgs e)
     {
-        Result = string.Empty;
+        Result = null;  // 取消时返回 null
         CloseAction?.Invoke();
     }
 }

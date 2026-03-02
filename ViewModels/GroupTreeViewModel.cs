@@ -42,9 +42,16 @@ public partial class GroupTreeViewModel : ObservableObject
             Prompt = "请输入分组名称："
         };
 
-        var result = await Dialog.Show(dialog).GetResultAsync<string>();
-        if (result is string name && !string.IsNullOrWhiteSpace(name))
+        var result = await Dialog.Show(dialog).GetResultAsync<string?>();
+        if (result != null)  // 用户点击了确定
         {
+            var name = result;
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                Growl.Warning("分组名称不能为空");
+                return;
+            }
+
             if (await CheckGroupNameExistsAsync(name, parentId))
             {
                 Growl.Warning("该分组名称已存在");
@@ -55,6 +62,7 @@ public partial class GroupTreeViewModel : ObservableObject
             await LoadGroupsAsync();
             Growl.Success("分组创建成功");
         }
+        // result == null 表示用户取消了，不需要处理
     }
 
     [RelayCommand]

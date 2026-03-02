@@ -1,10 +1,11 @@
 using BashCommandManager.ViewModels;
+using HandyControl.Controls;
 using System.Windows;
 using System.Windows.Controls;
 
 namespace BashCommandManager;
 
-public partial class MainWindow : Window
+public partial class MainWindow : HandyControl.Controls.Window
 {
     public MainWindow(MainViewModel viewModel)
     {

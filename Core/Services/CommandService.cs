@@ -1,6 +1,7 @@
 using BashCommandManager.Core.Models;
 using BashCommandManager.Core.Repositories;
 using Microsoft.Win32;
+using System.IO;
 
 namespace BashCommandManager.Core.Services;
 

@@ -3,7 +3,7 @@
            xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
            xmlns:hc="https://handyorg.github.io/handycontrol"
            xmlns:vm="clr-namespace:BashCommandManager.ViewModels"
-           Title="Batch Command Manager"
+           Title="批处理命令管理器"
            Height="600" Width="900"
            WindowStartupLocation="CenterScreen">
 
@@ -14,26 +14,29 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
+        <!-- 工具�?-->
         <ToolBar Grid.Row="0" Margin="5">
             <hc:ButtonGroup>
-                <Button Content="Import Command"
+                <Button Content="导入命令"
                         Command="{Binding ImportCommandCommand}"/>
             </hc:ButtonGroup>
             <Separator/>
             <TextBox x:Name="SearchBox"
                      Width="200"
-                     hc:InfoElement.Placeholder="Search commands..."
-                     Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}"/>
-            <Button Content="Search"
-                    Command="{Binding SearchCommand}"/>
+                     hc:InfoElement.Placeholder="搜索命令..."
+                     Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}"/\u003e
+            <Button Content="搜索"
+                    Command="{Binding SearchCommand}"/\u003e
         </ToolBar>
 
+        <!-- 主体内容 -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="250"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
+            <!-- 左侧分组�?-->
             <Border Grid.Column="0"
                     BorderBrush="{DynamicResource BorderBrush}"
                     BorderThickness="0,0,1,0"
@@ -44,27 +47,28 @@
                     <TreeView.ItemTemplate>
                         <HierarchicalDataTemplate ItemsSource="{Binding Children}">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{Binding Name}"/>
+                                <TextBlock Text="{Binding Name}"/\u003e
                             </StackPanel>
                         </HierarchicalDataTemplate>
                     </TreeView.ItemTemplate>
                     <TreeView.ContextMenu>
                         <ContextMenu>
-                            <MenuItem Header="New Subgroup"
+                            <MenuItem Header="新建子分�?
                                       Command="{Binding DataContext.GroupTreeViewModel.CreateGroupCommand, RelativeSource={RelativeSource AncestorType=TreeView}}"
-                                      CommandParameter="{Binding Id}"/>
-                            <MenuItem Header="Rename"
+                                      CommandParameter="{Binding Id}"/\u003e
+                            <MenuItem Header="重命�?
                                       Command="{Binding DataContext.GroupTreeViewModel.RenameGroupCommand, RelativeSource={RelativeSource AncestorType=TreeView}}"
-                                      CommandParameter="{Binding Id}"/>
+                                      CommandParameter="{Binding Id}"/\u003e
                             <Separator/>
-                            <MenuItem Header="Delete"
+                            <MenuItem Header="删除"
                                       Command="{Binding DataContext.GroupTreeViewModel.DeleteGroupCommand, RelativeSource={RelativeSource AncestorType=TreeView}}"
-                                      CommandParameter="{Binding Id}"/>
+                                      CommandParameter="{Binding Id}"/\u003e
                         </ContextMenu>
                     </TreeView.ContextMenu>
                 </TreeView>
             </Border>
 
+            <!-- 右侧命令列表 -->
             <ScrollViewer Grid.Column="1" Margin="10">
                 <ItemsControl ItemsSource="{Binding CommandListViewModel.Commands}">
                     <ItemsControl.ItemTemplate>
@@ -79,32 +83,32 @@
                                     <StackPanel Grid.Column="0" Margin="10">
                                         <TextBlock Text="{Binding Name}"
                                                    FontSize="16"
-                                                   FontWeight="Bold"/>
+                                                   FontWeight="Bold"/\u003e
                                         <TextBlock Text="{Binding Description}"
                                                    Foreground="{DynamicResource SecondaryTextBrush}"
-                                                   TextTrimming="CharacterEllipsis"/>
+                                                   TextTrimming="CharacterEllipsis"/\u003e
                                         <TextBlock Text="{Binding FilePath}"
                                                    FontSize="12"
                                                    Foreground="{DynamicResource TertiaryTextBrush}"
-                                                   ToolTip="{Binding FilePath}"/>
+                                                   ToolTip="{Binding FilePath}"/\u003e
                                     </StackPanel>
 
                                     <StackPanel Grid.Column="1"
                                                 Orientation="Horizontal"
                                                 VerticalAlignment="Center"
                                                 Margin="10">
-                                        <Button Content="Run"
+                                        <Button Content="运行"
                                                 Command="{Binding DataContext.CommandListViewModel.ExecuteCommandCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                 CommandParameter="{Binding}"
-                                                Margin="0,0,5,0"/>
-                                        <Button Content="Run as Admin"
+                                                Margin="0,0,5,0"/\u003e
+                                        <Button Content="管理员运�?
                                                 Command="{Binding DataContext.CommandListViewModel.ExecuteAsAdminCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                 CommandParameter="{Binding}"
-                                                Margin="0,0,5,0"/>
-                                        <Button Content="Delete"
+                                                Margin="0,0,5,0"/\u003e
+                                        <Button Content="删除"
                                                 Command="{Binding DataContext.CommandListViewModel.DeleteCommandCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                 CommandParameter="{Binding}"
-                                                Style="{StaticResource ButtonDanger}"/>
+                                                Style="{StaticResource ButtonDanger}"/\u003e
                                     </StackPanel>
                                 </Grid>
                             </hc:Card>
@@ -114,8 +118,9 @@
             </ScrollViewer>
         </Grid>
 
+        <!-- 状态栏 -->
         <StatusBar Grid.Row="2">
-            <TextBlock Text="{Binding StatusText}"/>
+            <TextBlock Text="{Binding StatusText}"/\u003e
         </StatusBar>
     </Grid>
 </hc:Window>

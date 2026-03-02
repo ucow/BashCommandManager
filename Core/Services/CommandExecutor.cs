@@ -1,5 +1,6 @@
 using BashCommandManager.Core.Models;
 using System.Diagnostics;
+using System.IO;
 
 namespace BashCommandManager.Core.Services;
 

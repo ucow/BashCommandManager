@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "F:\\WorkSpace\\Personal\\BashCommandManage_v8\\logs\\.8ec0034d9a2ae366eba054b194eedbf5c72bfe37-audit.json",
+    "files": [
+        {
+            "date": 1772452367590,
+            "name": "F:\\WorkSpace\\Personal\\BashCommandManage_v8\\logs\\mcp-puppeteer-2026-03-02.log",
+            "hash": "fdbc0c54afcb5dbad2faf65891d073d91a4437f0beb3f89599a2e2124c60b462"
+        }
+    ],
+    "hashType": "sha256"
+}

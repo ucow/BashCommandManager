@@ -29,28 +29,32 @@ public class CommandService : ICommandService
 
     public async Task<Command?> ImportCommandAsync(int groupId)
     {
-        var dialog = new OpenFileDialog
+        // 确保在 UI 线程上显示对话框
+        return await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
         {
-            Filter = "批处理文件|*.bat;*.cmd|所有文件|*.*",
-            Title = "选择批处理文件"
-        };
-
-        if (dialog.ShowDialog() == true)
-        {
-            var filePath = dialog.FileName;
-            var command = new Command
+            var dialog = new OpenFileDialog
             {
-                Name = Path.GetFileNameWithoutExtension(filePath),
-                Description = "",
-                FilePath = filePath,
-                GroupId = groupId
+                Filter = "批处理文件|*.bat;*.cmd|所有文件|*.*",
+                Title = "选择批处理文件"
             };
 
-            command.Id = await _repository.CreateAsync(command);
-            return command;
-        }
+            if (dialog.ShowDialog() == true)
+            {
+                var filePath = dialog.FileName;
+                var command = new Command
+                {
+                    Name = Path.GetFileNameWithoutExtension(filePath),
+                    Description = "",
+                    FilePath = filePath,
+                    GroupId = groupId
+                };
 
-        return null;
+                command.Id = await _repository.CreateAsync(command);
+                return command;
+            }
+
+            return null;
+        }).Task.Unwrap();
     }
 
     public async Task DeleteCommandAsync(int id)

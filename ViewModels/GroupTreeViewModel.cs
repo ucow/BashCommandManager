@@ -37,6 +37,7 @@ public partial class GroupTreeViewModel : ObservableObject
     [RelayCommand]
     private async Task CreateGroupAsync(int? parentId)
     {
+        System.Windows.MessageBox.Show($"CreateGroupAsync 被调用，parentId={parentId}", "调试-步骤1");
         var dialog = new InputDialogControl
         {
             Prompt = "请输入分组名称："
@@ -68,6 +69,7 @@ public partial class GroupTreeViewModel : ObservableObject
     [RelayCommand]
     private void RenameGroupAsync(Group group)
     {
+        System.Windows.MessageBox.Show($"RenameGroupAsync 被调用，group={(group?.Name ?? "null")}", "调试-步骤1");
         if (group == null) return;
         group.IsEditing = true;
     }
@@ -106,6 +108,7 @@ public partial class GroupTreeViewModel : ObservableObject
     [RelayCommand]
     private async Task DeleteGroupAsync(Group group)
     {
+        System.Windows.MessageBox.Show($"DeleteGroupAsync 被调用，group={(group?.Name ?? "null")}", "调试-步骤1");
         if (group == null) return;
 
         var commands = await _commandService.GetByGroupAsync(group.Id);

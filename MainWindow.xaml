@@ -41,7 +41,8 @@
                     Margin="5">
                 <TreeView x:Name="GroupTree"
                           ItemsSource="{Binding GroupTreeViewModel.Groups}"
-                          SelectedItemChanged="GroupTree_SelectedItemChanged">
+                          SelectedItemChanged="GroupTree_SelectedItemChanged"
+                          Tag="{Binding GroupTreeViewModel}">
                     <TreeView.ItemTemplate>
                         <HierarchicalDataTemplate ItemsSource="{Binding Children}">
                             <local:EditableTextBlock Text="{Binding Name}"
@@ -52,18 +53,19 @@
                     </TreeView.ItemTemplate>
                     <TreeView.ItemContainerStyle>
                         <Style TargetType="TreeViewItem" BasedOn="{StaticResource {x:Type TreeViewItem}}">
+                            <Setter Property="Tag" Value="{Binding DataContext.GroupTreeViewModel, RelativeSource={RelativeSource AncestorType=TreeView}}"/>
                             <Setter Property="ContextMenu">
                                 <Setter.Value>
                                     <ContextMenu>
                                         <MenuItem Header="新建子分组"
-                                                  Command="{Binding DataContext.GroupTreeViewModel.CreateGroupCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                  Command="{Binding PlacementTarget.Tag.CreateGroupCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                                   CommandParameter="{Binding Id}"/>
                                         <MenuItem Header="重命名"
-                                                  Command="{Binding DataContext.GroupTreeViewModel.RenameGroupCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                  Command="{Binding PlacementTarget.Tag.RenameGroupCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                                   CommandParameter="{Binding}"/>
                                         <Separator/>
                                         <MenuItem Header="删除"
-                                                  Command="{Binding DataContext.GroupTreeViewModel.DeleteGroupCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                  Command="{Binding PlacementTarget.Tag.DeleteGroupCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                                   CommandParameter="{Binding}"/>
                                     </ContextMenu>
                                 </Setter.Value>

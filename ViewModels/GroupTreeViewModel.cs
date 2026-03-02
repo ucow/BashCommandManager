@@ -1,8 +1,10 @@
+using BashCommandManager.Controls;
 using BashCommandManager.Core.Models;
 using BashCommandManager.Core.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HandyControl.Controls;
+using HandyControl.Tools.Extension;
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -35,17 +37,14 @@ public partial class GroupTreeViewModel : ObservableObject
     [RelayCommand]
     private async Task CreateGroupAsync(int? parentId)
     {
-        // 使用 InputDialog 或简单的输入方式
-        var inputDialog = new InputDialog("新建分组", "请输入分组名称：");
-        if (inputDialog.ShowDialog() == true)
+        var dialog = new InputDialogControl
         {
-            var name = inputDialog.InputText;
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                Growl.Warning("分组名称不能为空");
-                return;
-            }
+            Prompt = "请输入分组名称："
+        };
 
+        var result = await Dialog.Show(dialog).GetResultAsync<string>();
+        if (result is string name && !string.IsNullOrWhiteSpace(name))
+        {
             if (await CheckGroupNameExistsAsync(name, parentId))
             {
                 Growl.Warning("该分组名称已存在");
@@ -160,93 +159,5 @@ public partial class GroupTreeViewModel : ObservableObject
             }
         }
         return null;
-    }
-}
-
-// 简单的输入对话框类
-public class InputDialog : System.Windows.Window
-{
-    private System.Windows.Controls.TextBox _textBox;
-    private bool _result;
-
-    public string InputText => _textBox.Text;
-
-    public InputDialog(string title, string prompt)
-    {
-        Title = title;
-        Width = 400;
-        Height = 150;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        ResizeMode = ResizeMode.NoResize;
-
-        var grid = new Grid
-        {
-            Margin = new Thickness(20)
-        };
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
-        var promptBlock = new TextBlock
-        {
-            Text = prompt,
-            Margin = new Thickness(0, 0, 0, 10)
-        };
-        Grid.SetRow(promptBlock, 0);
-
-        _textBox = new System.Windows.Controls.TextBox
-        {
-            Margin = new Thickness(0, 0, 0, 15)
-        };
-        Grid.SetRow(_textBox, 1);
-
-        var buttonPanel = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Right
-        };
-        Grid.SetRow(buttonPanel, 2);
-
-        var okButton = new Button
-        {
-            Content = "确定",
-            Width = 75,
-            Margin = new Thickness(0, 0, 10, 0),
-            IsDefault = true
-        };
-        okButton.Click += (s, e) =>
-        {
-            _result = true;
-            Close();
-        };
-
-        var cancelButton = new Button
-        {
-            Content = "取消",
-            Width = 75,
-            IsCancel = true
-        };
-        cancelButton.Click += (s, e) =>
-        {
-            _result = false;
-            Close();
-        };
-
-        buttonPanel.Children.Add(okButton);
-        buttonPanel.Children.Add(cancelButton);
-
-        grid.Children.Add(promptBlock);
-        grid.Children.Add(_textBox);
-        grid.Children.Add(buttonPanel);
-
-        Content = grid;
-
-        Loaded += (s, e) => _textBox.Focus();
-    }
-
-    public new bool ShowDialog()
-    {
-        base.ShowDialog();
-        return _result;
     }
 }

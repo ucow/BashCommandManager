@@ -1,7 +1,126 @@
-<Window x:Class="BashCommandManager.MainWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="MainWindow" Height="450" Width="800">
+<hc:Window x:Class="BashCommandManager.MainWindow"
+           xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+           xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+           xmlns:hc="https://handyorg.github.io/handycontrol"
+           xmlns:vm="clr-namespace:BashCommandManager.ViewModels"
+           Title="批处理命令管理器"
+           Height="600" Width="900"
+           WindowStartupLocation="CenterScreen">
+
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 工具栏 -->
+        <ToolBar Grid.Row="0" Margin="5">
+            <hc:ButtonGroup>
+                <Button Content="导入命令"
+                        Command="{Binding ImportCommandCommand}"/\u003e
+            </hc:ButtonGroup>
+            <Separator/>
+            <TextBox x:Name="SearchBox"
+                     Width="200"
+                     hc:InfoElement.Placeholder="搜索命令..."
+                     Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}"/\u003e
+            <Button Content="搜索"
+                    Command="{Binding SearchCommand}"/\u003e
+        </ToolBar>
+
+        <!-- 主体内容 -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="250"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 左侧分组树 -->
+            <Border Grid.Column="0"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="0,0,1,0"
+                    Margin="5">
+                <TreeView x:Name="GroupTree"
+                          ItemsSource="{Binding GroupTreeViewModel.Groups}"
+                          SelectedItemChanged="GroupTree_SelectedItemChanged">
+                    <TreeView.ItemTemplate>
+                        <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Name}"/\u003e
+                            </StackPanel>
+                        </HierarchicalDataTemplate>
+                    </TreeView.ItemTemplate>
+                    <TreeView.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="新建子分组"
+                                      Command="{Binding DataContext.GroupTreeViewModel.CreateGroupCommand, RelativeSource={RelativeSource AncestorType=TreeView}}"
+                                      CommandParameter="{Binding Id}"/\u003e
+                            <MenuItem Header="重命名"
+                                      Command="{Binding DataContext.GroupTreeViewModel.RenameGroupCommand, RelativeSource={RelativeSource AncestorType=TreeView}}"
+                                      CommandParameter="{Binding Id}"/\u003e
+                            <Separator/>
+                            <MenuItem Header="删除"
+                                      Command="{Binding DataContext.GroupTreeViewModel.DeleteGroupCommand, RelativeSource={RelativeSource AncestorType=TreeView}}"
+                                      CommandParameter="{Binding Id}"/\u003e
+                        </ContextMenu>
+                    </TreeView.ContextMenu>
+                </TreeView>
+            </Border>
+
+            <!-- 右侧命令列表 -->
+            <ScrollViewer Grid.Column="1" Margin="10">
+                <ItemsControl ItemsSource="{Binding CommandListViewModel.Commands}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <hc:Card Margin="0,5" BorderThickness="1">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0" Margin="10">
+                                        <TextBlock Text="{Binding Name}"
+                                                   FontSize="16"
+                                                   FontWeight="Bold"/\u003e
+                                        <TextBlock Text="{Binding Description}"
+                                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                                   TextTrimming="CharacterEllipsis"/\u003e
+                                        <TextBlock Text="{Binding FilePath}"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource TertiaryTextBrush}"
+                                                   ToolTip="{Binding FilePath}"/\u003e
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="1"
+                                                Orientation="Horizontal"
+                                                VerticalAlignment="Center"
+                                                Margin="10">
+                                        <Button Content="运行"
+                                                Command="{Binding DataContext.CommandListViewModel.ExecuteCommandCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}"
+                                                Margin="0,0,5,0"/\u003e
+                                        <Button Content="管理员运行"
+                                                Command="{Binding DataContext.CommandListViewModel.ExecuteAsAdminCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}"
+                                                Margin="0,0,5,0"/\u003e
+                                        <Button Content="删除"
+                                                Command="{Binding DataContext.CommandListViewModel.DeleteCommandCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}"
+                                                Style="{StaticResource ButtonDanger}"/\u003e
+                                    </StackPanel>
+                                </Grid>
+                            </hc:Card>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- 状态栏 -->
+        <StatusBar Grid.Row="2">
+            <TextBlock Text="{Binding StatusText}"/\u003e
+        </StatusBar>
     </Grid>
-</Window>
+</hc:Window>

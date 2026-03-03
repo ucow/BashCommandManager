@@ -195,6 +195,13 @@ public partial class GroupTreeViewModel : ObservableObject
     {
         if (group == null) return;
 
+        // 从当前集合中获取最新的分组信息，确保名称是最新的
+        var latestGroup = FindGroupInCollection(Groups, group.Id);
+        if (latestGroup != null)
+        {
+            group = latestGroup;
+        }
+
         var commands = await _commandService.GetByGroupAsync(group.Id);
         var commandCount = commands.Count();
 
@@ -255,6 +262,26 @@ public partial class GroupTreeViewModel : ObservableObject
                 return group.Name;
             }
             var found = FindGroupName(group.Children, id);
+            if (found != null)
+            {
+                return found;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// 在集合中查找指定ID的分组，返回集合中的实际对象引用
+    /// </summary>
+    private Group? FindGroupInCollection(ObservableCollection<Group> groups, int id)
+    {
+        foreach (var group in groups)
+        {
+            if (group.Id == id)
+            {
+                return group;
+            }
+            var found = FindGroupInCollection(group.Children, id);
             if (found != null)
             {
                 return found;

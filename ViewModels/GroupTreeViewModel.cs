@@ -130,6 +130,7 @@ public partial class GroupTreeViewModel : ObservableObject
             Title = "确认删除",
             Message = message
         };
+        dialog.DataContext = dialog;
 
         var result = await Dialog.Show(dialog).GetResultAsync<bool>();
 

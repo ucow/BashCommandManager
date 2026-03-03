@@ -86,6 +86,13 @@ public partial class MainViewModel : ObservableObject
                 return;
             }
 
+            // 检查是否选择了虚拟节点
+            if (GroupTreeViewModel.SelectedGroup.IsVirtual)
+            {
+                System.Windows.MessageBox.Show("请选择一个具体分组来导入命令", "提示");
+                return;
+            }
+
             await CommandListViewModel.ImportCommandAsync(GroupTreeViewModel.SelectedGroup.Id);
             UpdateStatus();
         }

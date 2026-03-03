@@ -35,11 +35,20 @@ public partial class MainViewModel : ObservableObject
 
     private async void LoadCommandsForGroup()
     {
-        if (GroupTreeViewModel.SelectedGroup != null)
+        if (GroupTreeViewModel.SelectedGroup == null)
+            return;
+
+        if (GroupTreeViewModel.SelectedGroup.Id == 0 || GroupTreeViewModel.SelectedGroup.IsVirtual)
         {
-            await CommandListViewModel.LoadCommandsAsync(GroupTreeViewModel.SelectedGroup.Id);
-            UpdateStatus();
+            // 加载所有命令
+            await CommandListViewModel.LoadAllCommandsAsync();
         }
+        else
+        {
+            // 加载特定分组命令
+            await CommandListViewModel.LoadCommandsAsync(GroupTreeViewModel.SelectedGroup.Id);
+        }
+        UpdateStatus();
     }
 
     [RelayCommand]
@@ -49,7 +58,14 @@ public partial class MainViewModel : ObservableObject
         {
             if (GroupTreeViewModel.SelectedGroup != null)
             {
-                await CommandListViewModel.LoadCommandsAsync(GroupTreeViewModel.SelectedGroup.Id);
+                if (GroupTreeViewModel.SelectedGroup.Id == 0 || GroupTreeViewModel.SelectedGroup.IsVirtual)
+                {
+                    await CommandListViewModel.LoadAllCommandsAsync();
+                }
+                else
+                {
+                    await CommandListViewModel.LoadCommandsAsync(GroupTreeViewModel.SelectedGroup.Id);
+                }
             }
         }
         else

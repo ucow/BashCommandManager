@@ -35,35 +35,43 @@ public partial class GroupTreeViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task CreateGroupAsync(int? parentId)
+    private async Task CreateGroupAsync(object? parameter)
     {
-        System.Windows.MessageBox.Show($"CreateGroupAsync 被调用，parentId={parentId}", "调试-步骤1");
-        var dialog = new InputDialogControl
+        try
         {
-            Prompt = "请输入分组名称："
-        };
-
-        var result = await Dialog.Show(dialog).GetResultAsync<string?>();
-        if (result != null)  // 用户点击了确定
-        {
-            var name = result;
-            if (string.IsNullOrWhiteSpace(name))
+            int? parentId = parameter as int? ?? (parameter is int id ? id : null);
+            var dialog = new InputDialogControl
             {
-                Growl.Warning("分组名称不能为空");
-                return;
-            }
+                Prompt = "请输入分组名称："
+            };
+            dialog.DataContext = dialog; // 设置 DataContext 为控件本身，因为它实现了 IDialogResultable<string>
 
-            if (await CheckGroupNameExistsAsync(name, parentId))
+            var result = await Dialog.Show(dialog).GetResultAsync<string>();
+            if (!string.IsNullOrEmpty(result))  // 用户点击了确定
             {
-                Growl.Warning("该分组名称已存在");
-                return;
-            }
+                var name = result;
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    Growl.Warning("分组名称不能为空");
+                    return;
+                }
 
-            var group = await _groupService.CreateGroupAsync(name.Trim(), parentId);
-            await LoadGroupsAsync();
-            Growl.Success("分组创建成功");
+                if (await CheckGroupNameExistsAsync(name, parentId))
+                {
+                    Growl.Warning("该分组名称已存在");
+                    return;
+                }
+
+                var group = await _groupService.CreateGroupAsync(name.Trim(), parentId);
+                await LoadGroupsAsync();
+                Growl.Success("分组创建成功");
+            }
+            // result == null 表示用户取消了，不需要处理
         }
-        // result == null 表示用户取消了，不需要处理
+        catch (Exception ex)
+        {
+            Growl.Error($"创建分组时发生错误：{ex.Message}");
+        }
     }
 
     [RelayCommand]

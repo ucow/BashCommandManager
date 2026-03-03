@@ -10,7 +10,7 @@ public partial class EditableTextBlock : UserControl
 {
     public static readonly DependencyProperty TextProperty =
         DependencyProperty.Register(nameof(Text), typeof(string), typeof(EditableTextBlock),
-            new PropertyMetadata(string.Empty));
+            new FrameworkPropertyMetadata(string.Empty, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
 
     public static readonly DependencyProperty IsEditingProperty =
         DependencyProperty.Register(nameof(IsEditing), typeof(bool), typeof(EditableTextBlock),

@@ -199,28 +199,16 @@ public partial class GroupTreeViewModel : ObservableObject
     {
         if (group == null) return;
 
-        // DEBUG: 打印接收到的 group 信息
-        System.Diagnostics.Debug.WriteLine($"[DeleteGroupAsync] Received group: Id={group.Id}, Name='{group.Name}', HashCode={group.GetHashCode()}");
-
-        // 从当前集合中获取最新的分组信息，确保名称是最新的
-        var latestGroup = FindGroupInCollection(Groups, group.Id);
-        if (latestGroup != null)
-        {
-            System.Diagnostics.Debug.WriteLine($"[DeleteGroupAsync] Found in collection: Id={latestGroup.Id}, Name='{latestGroup.Name}', HashCode={latestGroup.GetHashCode()}");
-            System.Diagnostics.Debug.WriteLine($"[DeleteGroupAsync] Same object? {ReferenceEquals(group, latestGroup)}");
-            group = latestGroup;
-        }
-        else
-        {
-            System.Diagnostics.Debug.WriteLine($"[DeleteGroupAsync] Group not found in collection!");
-        }
+        // 从服务层获取最新的分组信息，确保名称是最新的
+        var latestGroupName = await GetLatestGroupNameAsync(group.Id);
+        var displayName = latestGroupName ?? group.Name;
 
         var commands = await _commandService.GetByGroupAsync(group.Id);
         var commandCount = commands.Count();
 
         string message = commandCount > 0
-            ? $"分组 \"{group.Name}\" 下有 {commandCount} 个命令，确定要删除吗？\n删除后这些命令也将被删除。"
-            : $"确定要删除分组 \"{group.Name}\" 吗？";
+            ? $"分组 \"{displayName}\" 下有 {commandCount} 个命令，确定要删除吗？\n删除后这些命令也将被删除。"
+            : $"确定要删除分组 \"{displayName}\" 吗？";
 
         var dialog = new ConfirmDialogControl
         {
@@ -237,6 +225,15 @@ public partial class GroupTreeViewModel : ObservableObject
             await LoadGroupsAsync(incremental: true);
             Growl.Success("删除成功");
         }
+    }
+
+    /// <summary>
+    /// 从服务层获取指定分组的最新名称
+    /// </summary>
+    private async Task<string?> GetLatestGroupNameAsync(int groupId)
+    {
+        var groups = await _groupService.GetGroupTreeAsync();
+        return FindGroupName(groups, groupId);
     }
 
     private async Task<bool> CheckGroupNameExistsAsync(string name, int? parentId, int? excludeId = null)
@@ -283,23 +280,4 @@ public partial class GroupTreeViewModel : ObservableObject
         return null;
     }
 
-    /// <summary>
-    /// 在集合中查找指定ID的分组，返回集合中的实际对象引用
-    /// </summary>
-    private Group? FindGroupInCollection(ObservableCollection<Group> groups, int id)
-    {
-        foreach (var group in groups)
-        {
-            if (group.Id == id)
-            {
-                return group;
-            }
-            var found = FindGroupInCollection(group.Children, id);
-            if (found != null)
-            {
-                return found;
-            }
-        }
-        return null;
-    }
 }

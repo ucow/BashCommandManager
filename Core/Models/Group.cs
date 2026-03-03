@@ -21,4 +21,7 @@ public partial class Group : ObservableObject
     private ObservableCollection<Group> _children = new();
 
     public List<Command> Commands { get; set; } = new();
+
+    // 虚拟节点标记（如"全部命令"）
+    public bool IsVirtual { get; set; }
 }

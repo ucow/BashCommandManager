@@ -102,6 +102,12 @@ public partial class EditableTextBlock : UserControl
         {
             Text = _originalText;
         }
+        else
+        {
+            // 显式更新绑定源，确保 Group.Name 被更新
+            var bindingExpression = EditText.GetBindingExpression(TextBox.TextProperty);
+            bindingExpression?.UpdateSource();
+        }
 
         IsEditing = false;
 

@@ -92,7 +92,11 @@ public partial class GroupTreeViewModel : ObservableObject
             else
             {
                 // 更新现有节点（保持对象引用）
-                existingGroup.Name = freshGroup.Name;
+                if (existingGroup.Name != freshGroup.Name)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[SyncGroupTree] Updating Name: Id={existingGroup.Id}, OldName='{existingGroup.Name}', NewName='{freshGroup.Name}', HashCode={existingGroup.GetHashCode()}");
+                    existingGroup.Name = freshGroup.Name;
+                }
                 existingGroup.SortOrder = freshGroup.SortOrder;
                 existingGroup.ParentId = freshGroup.ParentId;
 
@@ -195,11 +199,20 @@ public partial class GroupTreeViewModel : ObservableObject
     {
         if (group == null) return;
 
+        // DEBUG: 打印接收到的 group 信息
+        System.Diagnostics.Debug.WriteLine($"[DeleteGroupAsync] Received group: Id={group.Id}, Name='{group.Name}', HashCode={group.GetHashCode()}");
+
         // 从当前集合中获取最新的分组信息，确保名称是最新的
         var latestGroup = FindGroupInCollection(Groups, group.Id);
         if (latestGroup != null)
         {
+            System.Diagnostics.Debug.WriteLine($"[DeleteGroupAsync] Found in collection: Id={latestGroup.Id}, Name='{latestGroup.Name}', HashCode={latestGroup.GetHashCode()}");
+            System.Diagnostics.Debug.WriteLine($"[DeleteGroupAsync] Same object? {ReferenceEquals(group, latestGroup)}");
             group = latestGroup;
+        }
+        else
+        {
+            System.Diagnostics.Debug.WriteLine($"[DeleteGroupAsync] Group not found in collection!");
         }
 
         var commands = await _commandService.GetByGroupAsync(group.Id);

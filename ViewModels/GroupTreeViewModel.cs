@@ -76,8 +76,7 @@ public partial class GroupTreeViewModel : ObservableObject
                     Id = freshGroup.Id,
                     Name = freshGroup.Name,
                     ParentId = freshGroup.ParentId,
-                    SortOrder = freshGroup.SortOrder,
-                    Children = new List<Group>()
+                    SortOrder = freshGroup.SortOrder
                 };
 
                 if (insertIndex >= current.Count)
@@ -106,23 +105,7 @@ public partial class GroupTreeViewModel : ObservableObject
             }
 
             // 递归同步子节点
-            // 将 List 转换为 ObservableCollection 进行处理，然后同步回 List
-            var currentChildren = existingGroup.Children ?? new List<Group>();
-            var existingChildren = new ObservableCollection<Group>(currentChildren);
-            SyncGroupTree(existingChildren, freshGroup.Children);
-
-            // 清空原列表并添加新元素，保持集合引用不变
-            currentChildren.Clear();
-            foreach (var child in existingChildren)
-            {
-                currentChildren.Add(child);
-            }
-
-            // 确保 existingGroup.Children 指向正确的列表
-            if (existingGroup.Children == null)
-            {
-                existingGroup.Children = currentChildren;
-            }
+            SyncGroupTree(existingGroup.Children, freshGroup.Children.ToList());
 
             insertIndex++;
         }
@@ -243,7 +226,7 @@ public partial class GroupTreeViewModel : ObservableObject
         return siblings.Any(g => g.Name == name && g.Id != excludeId);
     }
 
-    private List<Group> GetSiblings(List<Group> groups, int? parentId)
+    private List<Group> GetSiblings(IList<Group> groups, int? parentId)
     {
         var result = new List<Group>();
         foreach (var group in groups)
@@ -263,7 +246,7 @@ public partial class GroupTreeViewModel : ObservableObject
         return FindGroupName(groups, id) ?? string.Empty;
     }
 
-    private string? FindGroupName(List<Group> groups, int id)
+    private string? FindGroupName(IList<Group> groups, int id)
     {
         foreach (var group in groups)
         {

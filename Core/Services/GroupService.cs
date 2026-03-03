@@ -32,7 +32,12 @@ public class GroupService : IGroupService
         var result = groups.Where(g => g.ParentId == parentId).ToList();
         foreach (var group in result)
         {
-            group.Children = BuildTree(groups, group.Id);
+            var children = BuildTree(groups, group.Id);
+            group.Children.Clear();
+            foreach (var child in children)
+            {
+                group.Children.Add(child);
+            }
         }
         return result;
     }

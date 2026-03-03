@@ -75,19 +75,18 @@ public partial class GroupTreeViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void RenameGroupAsync(Group group)
+    private void StartRenameGroup(Group group)
     {
-        System.Windows.MessageBox.Show($"RenameGroupAsync 被调用，group={(group?.Name ?? "null")}", "调试-步骤1");
         if (group == null) return;
         group.IsEditing = true;
     }
 
     [RelayCommand]
-    private async Task FinishRenameAsync(string newName)
+    private async Task FinishRenameAsync(Group group)
     {
-        if (SelectedGroup == null) return;
+        if (group == null) return;
 
-        var group = SelectedGroup;
+        var newName = group.Name;
 
         if (string.IsNullOrWhiteSpace(newName))
         {
@@ -96,7 +95,8 @@ public partial class GroupTreeViewModel : ObservableObject
             return;
         }
 
-        if (newName.Trim() == group.Name)
+        var originalName = await GetOriginalGroupNameAsync(group.Id);
+        if (newName.Trim() == originalName)
         {
             return;
         }
@@ -104,7 +104,7 @@ public partial class GroupTreeViewModel : ObservableObject
         if (await CheckGroupNameExistsAsync(newName, group.ParentId, group.Id))
         {
             Growl.Warning("该分组名称已存在");
-            group.Name = await GetOriginalGroupNameAsync(group.Id);
+            group.Name = originalName;
             return;
         }
 

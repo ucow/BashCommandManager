@@ -32,6 +32,15 @@ public partial class GroupTreeViewModel : ObservableObject
     {
         var groups = await _groupService.GetGroupTreeAsync();
 
+        // 插入虚拟"全部命令"节点
+        var allCommandsNode = new Group
+        {
+            Id = 0,
+            Name = "全部命令",
+            IsVirtual = true
+        };
+        groups.Insert(0, allCommandsNode);
+
         if (Groups.Count == 0 || !incremental)
         {
             // 首次加载或非增量刷新：重建整个集合
@@ -41,6 +50,12 @@ public partial class GroupTreeViewModel : ObservableObject
         {
             // 增量更新：同步树结构
             SyncGroupTree(Groups, groups);
+        }
+
+        // 首次加载时自动选中"全部命令"节点
+        if (SelectedGroup == null && Groups.Count > 0)
+        {
+            SelectedGroup = Groups.FirstOrDefault(g => g.IsVirtual);
         }
     }
 

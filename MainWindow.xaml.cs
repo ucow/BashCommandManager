@@ -30,6 +30,10 @@ public partial class MainWindow : HandyControl.Controls.Window
     {
         if (sender is TreeViewItem item && item.ContextMenu != null && DataContext is MainViewModel vm)
         {
+            // 检查是否是虚拟节点
+            var selectedGroup = vm.GroupTreeViewModel.SelectedGroup;
+            bool isVirtual = selectedGroup?.IsVirtual ?? false;
+
             foreach (var child in item.ContextMenu.Items)
             {
                 if (child is MenuItem menuItem)
@@ -38,12 +42,18 @@ public partial class MainWindow : HandyControl.Controls.Window
                     {
                         case "新建子分组":
                             menuItem.Command = vm.GroupTreeViewModel.CreateGroupCommand;
+                            // 虚拟节点隐藏新建子分组菜单
+                            menuItem.Visibility = isVirtual ? Visibility.Collapsed : Visibility.Visible;
                             break;
                         case "重命名":
                             menuItem.Command = vm.GroupTreeViewModel.StartRenameGroupCommand;
+                            // 虚拟节点隐藏重命名菜单
+                            menuItem.Visibility = isVirtual ? Visibility.Collapsed : Visibility.Visible;
                             break;
                         case "删除":
                             menuItem.Command = vm.GroupTreeViewModel.DeleteGroupCommand;
+                            // 虚拟节点隐藏删除菜单
+                            menuItem.Visibility = isVirtual ? Visibility.Collapsed : Visibility.Visible;
                             break;
                     }
                 }

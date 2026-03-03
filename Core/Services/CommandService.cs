@@ -11,6 +11,7 @@ public interface ICommandService
     Task<Command?> ImportCommandAsync(int groupId);
     Task DeleteCommandAsync(int id);
     Task<IEnumerable<Command>> SearchAsync(string keyword);
+    Task<IEnumerable<Command>> GetAllAsync();
 }
 
 public class CommandService : ICommandService
@@ -65,5 +66,10 @@ public class CommandService : ICommandService
     public async Task<IEnumerable<Command>> SearchAsync(string keyword)
     {
         return await _repository.SearchAsync(keyword);
+    }
+
+    public async Task<IEnumerable<Command>> GetAllAsync()
+    {
+        return await _repository.GetAllAsync();
     }
 }

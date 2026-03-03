@@ -12,6 +12,7 @@ public interface ICommandRepository
     Task UpdateAsync(Command command);
     Task DeleteAsync(int id);
     Task<IEnumerable<Command>> SearchAsync(string keyword);
+    Task<IEnumerable<Command>> GetAllAsync();
 }
 
 public class CommandRepository : ICommandRepository
@@ -67,5 +68,11 @@ public class CommandRepository : ICommandRepository
             WHERE Name LIKE @Keyword OR Description LIKE @Keyword
             ORDER BY Name";
         return await _db.QueryAsync<Command>(sql, new { Keyword = $"%{keyword}%" });
+    }
+
+    public async Task<IEnumerable<Command>> GetAllAsync()
+    {
+        var sql = "SELECT * FROM Commands ORDER BY Name";
+        return await _db.QueryAsync<Command>(sql);
     }
 }

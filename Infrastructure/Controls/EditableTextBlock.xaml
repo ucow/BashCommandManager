@@ -14,7 +14,7 @@
                    VerticalAlignment="Center"
                    Visibility="{Binding IsEditing, ElementName=Root, Converter={StaticResource InverseBooleanToVisibilityConverter}}"/>
         <TextBox x:Name="EditText"
-                 Text="{Binding Text, ElementName=Root, UpdateSourceTrigger=PropertyChanged}"
+                 Text="{Binding Text, ElementName=Root, UpdateSourceTrigger=Explicit}"
                  VerticalAlignment="Center"
                  Visibility="{Binding IsEditing, ElementName=Root, Converter={StaticResource BooleanToVisibilityConverter}}"
                  LostFocus="EditText_LostFocus"

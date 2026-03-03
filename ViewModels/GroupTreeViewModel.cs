@@ -28,10 +28,104 @@ public partial class GroupTreeViewModel : ObservableObject
         _commandService = commandService;
     }
 
-    public async Task LoadGroupsAsync()
+    public async Task LoadGroupsAsync(bool incremental = true)
     {
         var groups = await _groupService.GetGroupTreeAsync();
-        Groups = new ObservableCollection<Group>(groups);
+
+        if (Groups.Count == 0 || !incremental)
+        {
+            // 首次加载或非增量刷新：重建整个集合
+            Groups = new ObservableCollection<Group>(groups);
+        }
+        else
+        {
+            // 增量更新：同步树结构
+            SyncGroupTree(Groups, groups);
+        }
+    }
+
+    /// <summary>
+    /// 递归同步树结构，增量更新集合以保持展开状态
+    /// </summary>
+    private void SyncGroupTree(ObservableCollection<Group> current, List<Group> fresh)
+    {
+        if (current == null) throw new ArgumentNullException(nameof(current));
+        if (fresh == null) throw new ArgumentNullException(nameof(fresh));
+
+        // 标记新数据中的所有节点ID
+        var freshIds = new HashSet<int>(fresh.Select(g => g.Id));
+
+        // 删除在新数据中不存在的节点
+        var toRemove = current.Where(g => !freshIds.Contains(g.Id)).ToList();
+        foreach (var group in toRemove)
+        {
+            current.Remove(group);
+        }
+
+        // 处理新增和更新的节点，保持与 fresh 列表相同的顺序
+        int insertIndex = 0;
+        foreach (var freshGroup in fresh)
+        {
+            var existingGroup = current.FirstOrDefault(g => g.Id == freshGroup.Id);
+
+            if (existingGroup == null)
+            {
+                // 新增节点
+                var newGroup = new Group
+                {
+                    Id = freshGroup.Id,
+                    Name = freshGroup.Name,
+                    ParentId = freshGroup.ParentId,
+                    SortOrder = freshGroup.SortOrder,
+                    Children = new List<Group>()
+                };
+
+                if (insertIndex >= current.Count)
+                {
+                    current.Add(newGroup);
+                }
+                else
+                {
+                    current.Insert(insertIndex, newGroup);
+                }
+                existingGroup = newGroup;
+            }
+            else
+            {
+                // 更新现有节点（保持对象引用）
+                existingGroup.Name = freshGroup.Name;
+                existingGroup.SortOrder = freshGroup.SortOrder;
+                existingGroup.ParentId = freshGroup.ParentId;
+
+                // 如果节点位置不对，移动到正确位置
+                int currentIndex = current.IndexOf(existingGroup);
+                if (currentIndex != insertIndex)
+                {
+                    current.Move(currentIndex, insertIndex);
+                }
+            }
+
+            // 递归同步子节点
+            // 将 List 转换为 ObservableCollection 进行处理，然后同步回 List
+            var currentChildren = existingGroup.Children ?? new List<Group>();
+            var existingChildren = new ObservableCollection<Group>(currentChildren);
+            SyncGroupTree(existingChildren, freshGroup.Children);
+
+            // 清空原列表并添加新元素，保持集合引用不变
+            currentChildren.Clear();
+            foreach (var child in existingChildren)
+            {
+                currentChildren.Add(child);
+            }
+
+            // 确保 existingGroup.Children 指向正确的列表
+            if (existingGroup.Children == null)
+            {
+                existingGroup.Children = currentChildren;
+            }
+
+            insertIndex++;
+        }
     }
 
     [RelayCommand]
@@ -63,7 +157,7 @@ public partial class GroupTreeViewModel : ObservableObject
                 }
 
                 var group = await _groupService.CreateGroupAsync(name.Trim(), parentId);
-                await LoadGroupsAsync();
+                await LoadGroupsAsync(incremental: true);
                 Growl.Success("分组创建成功");
             }
             // result == null 表示用户取消了，不需要处理
@@ -109,7 +203,7 @@ public partial class GroupTreeViewModel : ObservableObject
         }
 
         await _groupService.RenameGroupAsync(group.Id, newName.Trim());
-        await LoadGroupsAsync();
+        await LoadGroupsAsync(incremental: true);
         Growl.Success("重命名成功");
     }
 
@@ -137,7 +231,7 @@ public partial class GroupTreeViewModel : ObservableObject
         if (result)
         {
             await _groupService.DeleteGroupAsync(group.Id);
-            await LoadGroupsAsync();
+            await LoadGroupsAsync(incremental: true);
             Growl.Success("删除成功");
         }
     }

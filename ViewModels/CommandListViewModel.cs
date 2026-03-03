@@ -26,6 +26,12 @@ public partial class CommandListViewModel : ObservableObject
         Commands = new ObservableCollection<Command>(commands);
     }
 
+    public async Task LoadAllCommandsAsync()
+    {
+        var commands = await _commandService.GetAllAsync();
+        Commands = new ObservableCollection<Command>(commands);
+    }
+
     public async Task SearchAsync(string keyword)
     {
         var commands = await _commandService.SearchAsync(keyword);

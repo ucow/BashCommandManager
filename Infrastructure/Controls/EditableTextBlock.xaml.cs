@@ -61,14 +61,6 @@ public partial class EditableTextBlock : UserControl
         }
     }
 
-    private void DisplayText_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        if (e.ClickCount == 2)
-        {
-            StartEdit();
-        }
-    }
-
     private void EditText_Loaded(object sender, RoutedEventArgs e)
     {
         EditText.Focus();

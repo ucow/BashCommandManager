@@ -12,7 +12,6 @@
         <TextBlock x:Name="DisplayText"
                    Text="{Binding Text, ElementName=Root}"
                    VerticalAlignment="Center"
-                   MouseLeftButtonDown="DisplayText_MouseLeftButtonDown"
                    Visibility="{Binding IsEditing, ElementName=Root, Converter={StaticResource InverseBooleanToVisibilityConverter}}"/>
         <TextBox x:Name="EditText"
                  Text="{Binding Text, ElementName=Root, UpdateSourceTrigger=PropertyChanged}"

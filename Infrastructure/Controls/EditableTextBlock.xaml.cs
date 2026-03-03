@@ -14,7 +14,7 @@ public partial class EditableTextBlock : UserControl
 
     public static readonly DependencyProperty IsEditingProperty =
         DependencyProperty.Register(nameof(IsEditing), typeof(bool), typeof(EditableTextBlock),
-            new PropertyMetadata(false, OnIsEditingChanged));
+            new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, OnIsEditingChanged));
 
     public static readonly DependencyProperty CommandProperty =
         DependencyProperty.Register(nameof(Command), typeof(ICommand), typeof(EditableTextBlock));
@@ -55,6 +55,7 @@ public partial class EditableTextBlock : UserControl
 
     private static void OnIsEditingChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
+        System.Diagnostics.Debug.WriteLine($"OnIsEditingChanged: Old={e.OldValue}, New={e.NewValue}");
         if (d is EditableTextBlock control && (bool)e.NewValue)
         {
             control._originalText = control.Text;

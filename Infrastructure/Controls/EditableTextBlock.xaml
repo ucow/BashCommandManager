@@ -8,7 +8,7 @@
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
         <local:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter"/>
     </UserControl.Resources>
-    <Grid>
+    <Grid x:Name="LayoutRoot">
         <TextBlock x:Name="DisplayText"
                    Text="{Binding Text, ElementName=Root}"
                    VerticalAlignment="Center"

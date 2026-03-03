@@ -116,7 +116,6 @@ public partial class GroupTreeViewModel : ObservableObject
     [RelayCommand]
     private async Task DeleteGroupAsync(Group group)
     {
-        System.Windows.MessageBox.Show($"DeleteGroupAsync 被调用，group={(group?.Name ?? "null")}", "调试-步骤1");
         if (group == null) return;
 
         var commands = await _commandService.GetByGroupAsync(group.Id);
@@ -126,9 +125,15 @@ public partial class GroupTreeViewModel : ObservableObject
             ? $"分组 \"{group.Name}\" 下有 {commandCount} 个命令，确定要删除吗？\n删除后这些命令也将被删除。"
             : $"确定要删除分组 \"{group.Name}\" 吗？";
 
-        var result = System.Windows.MessageBox.Show(message, "确认删除", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        var dialog = new ConfirmDialogControl
+        {
+            Title = "确认删除",
+            Message = message
+        };
 
-        if (result == MessageBoxResult.Yes)
+        var result = await Dialog.Show(dialog).GetResultAsync<bool>();
+
+        if (result)
         {
             await _groupService.DeleteGroupAsync(group.Id);
             await LoadGroupsAsync();

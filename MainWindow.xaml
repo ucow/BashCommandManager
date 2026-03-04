@@ -9,6 +9,23 @@
            Height="600" Width="900"
            WindowStartupLocation="CenterScreen">
 
+    <hc:Window.Resources>
+        <!-- 系统托盘图标 -->
+        <hc:NotifyIcon x:Key="TrayIcon"
+                       x:Name="TrayIcon"
+                       Icon="Assets/app.ico"
+                       Text="批处理命令管理器"
+                       MouseDoubleClick="TrayIcon_MouseDoubleClick">
+            <hc:NotifyIcon.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="显示窗口" Click="ShowWindow_Click"/>
+                    <Separator/>
+                    <MenuItem Header="退出" Click="Exit_Click"/>
+                </ContextMenu>
+            </hc:NotifyIcon.ContextMenu>
+        </hc:NotifyIcon>
+    </hc:Window.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>

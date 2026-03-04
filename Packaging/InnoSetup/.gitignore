@@ -1,0 +1,6 @@
+# 发布输出目录
+Full/bin/
+Lite/bin/
+
+# 生成的安装包（可选，如果需要提交到Release，可以不忽略）
+# ../../bin/Publish/Installer/

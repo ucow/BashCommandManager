@@ -117,7 +117,7 @@ public partial class CommandListViewModel : ObservableObject
 
         if (!Directory.Exists(directoryPath))
         {
-            System.Windows.MessageBox.Show($"目录不存在: {directoryPath}", "错误", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+            Growl.Warning($"目录不存在: {directoryPath}");
             return;
         }
 
@@ -132,7 +132,7 @@ public partial class CommandListViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show($"打开目录失败: {ex.Message}", "错误", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            Growl.Error($"打开目录失败: {ex.Message}");
         }
     }
 }

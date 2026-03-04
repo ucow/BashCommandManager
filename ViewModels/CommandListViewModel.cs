@@ -40,13 +40,14 @@ public partial class CommandListViewModel : ObservableObject
         Commands = new ObservableCollection<Command>(commands);
     }
 
-    public async Task ImportCommandAsync(int groupId)
+    public async Task<IEnumerable<Command>> ImportCommandsAsync(int groupId)
     {
-        var command = await _commandService.ImportCommandAsync(groupId);
-        if (command != null)
+        var commands = await _commandService.ImportCommandsAsync(groupId);
+        foreach (var command in commands)
         {
             Commands.Add(command);
         }
+        return commands;
     }
 
     [RelayCommand]

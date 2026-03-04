@@ -8,6 +8,8 @@ namespace BashCommandManager;
 
 public partial class MainWindow : HandyControl.Controls.Window
 {
+    private bool _isExiting = false; // 标记是否真正退出
+
     public MainWindow(MainViewModel viewModel)
     {
         InitializeComponent();
@@ -84,7 +86,8 @@ public partial class MainWindow : HandyControl.Controls.Window
 
     private void Exit_Click(object sender, RoutedEventArgs e)
     {
-        // TODO: 实现退出应用
+        _isExiting = true; // 设置退出标志
+        Close(); // 调用关闭方法
     }
 
     private void MainWindow_StateChanged(object? sender, EventArgs e)
@@ -97,6 +100,17 @@ public partial class MainWindow : HandyControl.Controls.Window
 
     protected override void OnClosing(CancelEventArgs e)
     {
+        if (_isExiting)
+        {
+            // 真正退出时清理托盘图标
+            if (FindResource("TrayIcon") is HandyControl.Controls.NotifyIcon trayIcon)
+            {
+                trayIcon.Dispose();
+            }
+            base.OnClosing(e);
+            return;
+        }
+
         e.Cancel = true; // 取消关闭操作
         WindowState = WindowState.Minimized; // 触发最小化
         Hide(); // 隐藏窗体

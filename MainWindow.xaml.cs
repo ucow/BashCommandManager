@@ -1,5 +1,6 @@
 using BashCommandManager.ViewModels;
 using HandyControl.Controls;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -16,6 +17,9 @@ public partial class MainWindow : HandyControl.Controls.Window
         {
             await viewModel.GroupTreeViewModel.LoadGroupsAsync();
         };
+
+        // 订阅窗体状态变化事件
+        StateChanged += MainWindow_StateChanged;
     }
 
     private void GroupTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
@@ -74,5 +78,21 @@ public partial class MainWindow : HandyControl.Controls.Window
     private void Exit_Click(object sender, RoutedEventArgs e)
     {
         // TODO: 实现退出应用
+    }
+
+    private void MainWindow_StateChanged(object? sender, EventArgs e)
+    {
+        if (WindowState == WindowState.Minimized)
+        {
+            Hide(); // 隐藏窗体（从任务栏消失）
+        }
+    }
+
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        e.Cancel = true; // 取消关闭操作
+        WindowState = WindowState.Minimized; // 触发最小化
+        Hide(); // 隐藏窗体
+        base.OnClosing(e);
     }
 }

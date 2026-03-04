@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using HandyControl.Controls;
 
 namespace BashCommandManager.ViewModels;
 
@@ -98,7 +99,7 @@ public partial class MainViewModel : ObservableObject
 
             if (count > 0)
             {
-                System.Windows.MessageBox.Show($"成功导入 {count} 个命令", "导入完成");
+                Growl.Success($"成功导入 {count} 个命令");
             }
 
             UpdateStatus();

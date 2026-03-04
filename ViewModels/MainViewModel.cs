@@ -106,7 +106,7 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show($"导入失败: {ex.Message}", "错误");
+            Growl.Error($"导入失败: {ex.Message}");
         }
     }
 

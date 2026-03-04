@@ -8,7 +8,7 @@ namespace BashCommandManager.Core.Services;
 public interface ICommandService
 {
     Task<IEnumerable<Command>> GetByGroupAsync(int groupId);
-    Task<Command?> ImportCommandAsync(int groupId);
+    Task<IEnumerable<Command>> ImportCommandsAsync(int groupId);
     Task DeleteCommandAsync(int id);
     Task<IEnumerable<Command>> SearchAsync(string keyword);
     Task<IEnumerable<Command>> GetAllAsync();
@@ -28,33 +28,37 @@ public class CommandService : ICommandService
         return await _repository.GetByGroupIdAsync(groupId);
     }
 
-    public async Task<Command?> ImportCommandAsync(int groupId)
+    public async Task<IEnumerable<Command>> ImportCommandsAsync(int groupId)
     {
-        // 确保在 UI 线程上显示对话框
         return await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
         {
             var dialog = new OpenFileDialog
             {
                 Filter = "批处理文件|*.bat;*.cmd|所有文件|*.*",
-                Title = "选择批处理文件"
+                Title = "选择批处理文件",
+                Multiselect = true
             };
+
+            var importedCommands = new List<Command>();
 
             if (dialog.ShowDialog() == true)
             {
-                var filePath = dialog.FileName;
-                var command = new Command
+                foreach (var filePath in dialog.FileNames)
                 {
-                    Name = Path.GetFileNameWithoutExtension(filePath),
-                    Description = "",
-                    FilePath = filePath,
-                    GroupId = groupId
-                };
+                    var command = new Command
+                    {
+                        Name = Path.GetFileNameWithoutExtension(filePath),
+                        Description = "",
+                        FilePath = filePath,
+                        GroupId = groupId
+                    };
 
-                command.Id = await _repository.CreateAsync(command);
-                return command;
+                    command.Id = await _repository.CreateAsync(command);
+                    importedCommands.Add(command);
+                }
             }
 
-            return null;
+            return importedCommands;
         }).Task.Unwrap();
     }
 

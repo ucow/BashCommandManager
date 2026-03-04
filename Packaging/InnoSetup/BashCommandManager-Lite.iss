@@ -29,10 +29,10 @@ ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 
 [Languages]
-Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+Name: "desktopicon"; Description: "Create a desktop icon"; GroupDescription: "Additional icons:"; Flags: unchecked
 
 [Files]
 Source: "Lite\bin\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
@@ -40,11 +40,11 @@ Source: "Lite\bin\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs crea
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
-Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
+Name: "{group}\Uninstall {#MyAppName}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
 
 [Code]
 function InitializeSetup(): Boolean;
@@ -60,10 +60,10 @@ begin
 
   if not NetRuntimeInstalled then
   begin
-    if MsgBox('检测到您尚未安装 .NET 8 运行时。' + #13#10 +
-              '本精简版需要 .NET 8 运行时才可运行。' + #13#10 + #13#10 +
-              '是否立即打开下载页面？' + #13#10 +
-              '或点击"否"继续安装（程序可能无法运行）。',
+    if MsgBox('.NET 8 Runtime not detected.' + #13#10 +
+              'The Lite version requires .NET 8 Runtime to run.' + #13#10 + #13#10 +
+              'Open the download page now?' + #13#10 +
+              'Click "No" to continue anyway (program may not work).',
               mbConfirmation, MB_YESNO) = IDYES then
     begin
       ShellExec('open', 'https://dotnet.microsoft.com/download/dotnet/8.0', '', '', SW_SHOWNORMAL, ewNoWait, ResultCode);

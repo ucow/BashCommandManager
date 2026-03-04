@@ -11,7 +11,8 @@ public class DatabaseInitializer
 
     public DatabaseInitializer()
     {
-        var appDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!;
+        // 使用 AppContext.BaseDirectory 替代 Assembly.Location，支持单文件发布
+        var appDir = AppContext.BaseDirectory;
         var dataDir = Path.Combine(appDir, "data");
         Directory.CreateDirectory(dataDir);
         _dbPath = Path.Combine(dataDir, "app.db");

@@ -103,10 +103,7 @@ public partial class MainWindow : HandyControl.Controls.Window
         if (_isExiting)
         {
             // 真正退出时清理托盘图标
-            if (FindResource("TrayIcon") is HandyControl.Controls.NotifyIcon trayIcon)
-            {
-                trayIcon.Dispose();
-            }
+            TrayIcon?.Dispose();
             base.OnClosing(e);
             return;
         }

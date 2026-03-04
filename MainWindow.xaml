@@ -9,10 +9,15 @@
            Height="600" Width="900"
            WindowStartupLocation="CenterScreen">
 
-    <hc:Window.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
         <!-- 系统托盘图标 -->
-        <hc:NotifyIcon x:Key="TrayIcon"
-                       x:Name="TrayIcon"
+        <hc:NotifyIcon x:Name="TrayIcon"
                        Icon="Assets/app.ico"
                        Text="批处理命令管理器"
                        MouseDoubleClick="TrayIcon_MouseDoubleClick">
@@ -24,14 +29,6 @@
                 </ContextMenu>
             </hc:NotifyIcon.ContextMenu>
         </hc:NotifyIcon>
-    </hc:Window.Resources>
-
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
 
         <ToolBar Grid.Row="0" Margin="5">
             <hc:ButtonGroup>

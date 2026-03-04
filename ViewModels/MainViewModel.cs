@@ -83,14 +83,14 @@ public partial class MainViewModel : ObservableObject
         {
             if (GroupTreeViewModel.SelectedGroup == null)
             {
-                System.Windows.MessageBox.Show("请先选择一个分组", "提示");
+                Growl.Warning("请先选择一个分组");
                 return;
             }
 
             // 检查是否选择了虚拟节点
             if (GroupTreeViewModel.SelectedGroup.IsVirtual)
             {
-                System.Windows.MessageBox.Show("请选择一个具体分组来导入命令", "提示");
+                Growl.Warning("请选择一个具体分组来导入命令");
                 return;
             }
 

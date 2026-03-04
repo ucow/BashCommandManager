@@ -1,7 +1,10 @@
+using BashCommandManager.Controls;
 using BashCommandManager.Core.Models;
 using BashCommandManager.Core.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using HandyControl.Controls;
+using HandyControl.Tools.Extension;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
@@ -79,15 +82,20 @@ public partial class CommandListViewModel : ObservableObject
     [RelayCommand]
     private async Task DeleteCommandAsync(Command command)
     {
-        var result = System.Windows.MessageBox.Show(
-            $"确定要删除命令 '{command.Name}' 吗？\n这只会从列表中移除，不会删除实际文件。",
-            "确认删除",
-            System.Windows.MessageBoxButton.YesNo);
+        var dialog = new ConfirmDialogControl
+        {
+            Title = "确认删除",
+            Message = $"确定要删除命令 '{command.Name}' 吗？\n这只会从列表中移除，不会删除实际文件。"
+        };
+        dialog.DataContext = dialog;
 
-        if (result == System.Windows.MessageBoxResult.Yes)
+        var result = await Dialog.Show(dialog).GetResultAsync<bool>();
+
+        if (result)
         {
             await _commandService.DeleteCommandAsync(command.Id);
             Commands.Remove(command);
+            Growl.Success("删除成功");
         }
     }
 

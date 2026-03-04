@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HandyControl.Controls;
+using HandyControl.Data;
 
 namespace BashCommandManager.ViewModels;
 
@@ -83,14 +84,22 @@ public partial class MainViewModel : ObservableObject
         {
             if (GroupTreeViewModel.SelectedGroup == null)
             {
-                Growl.Warning("请先选择一个分组");
+                Growl.Warning(new GrowlInfo
+                {
+                    Message = "请先选择一个分组",
+                    WaitTime = 3
+                });
                 return;
             }
 
             // 检查是否选择了虚拟节点
             if (GroupTreeViewModel.SelectedGroup.IsVirtual)
             {
-                Growl.Warning("请选择一个具体分组来导入命令");
+                Growl.Warning(new GrowlInfo
+                {
+                    Message = "请选择一个具体分组来导入命令",
+                    WaitTime = 3
+                });
                 return;
             }
 
@@ -99,14 +108,22 @@ public partial class MainViewModel : ObservableObject
 
             if (count > 0)
             {
-                Growl.Success($"成功导入 {count} 个命令");
+                Growl.Success(new GrowlInfo
+                {
+                    Message = $"成功导入 {count} 个命令",
+                    WaitTime = 3
+                });
             }
 
             UpdateStatus();
         }
         catch (Exception ex)
         {
-            Growl.Error($"导入失败: {ex.Message}");
+            Growl.Error(new GrowlInfo
+            {
+                Message = $"导入失败: {ex.Message}",
+                WaitTime = 3
+            });
         }
     }
 

@@ -4,6 +4,7 @@ using BashCommandManager.Core.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HandyControl.Controls;
+using HandyControl.Data;
 using HandyControl.Tools.Extension;
 using System.Collections.ObjectModel;
 using System.Windows;
@@ -148,25 +149,41 @@ public partial class GroupTreeViewModel : ObservableObject
                 var name = result;
                 if (string.IsNullOrWhiteSpace(name))
                 {
-                    Growl.Warning("分组名称不能为空");
+                    Growl.Warning(new GrowlInfo
+                    {
+                        Message = "分组名称不能为空",
+                        WaitTime = 3
+                    });
                     return;
                 }
 
                 if (await CheckGroupNameExistsAsync(name, parentId))
                 {
-                    Growl.Warning("该分组名称已存在");
+                    Growl.Warning(new GrowlInfo
+                    {
+                        Message = "该分组名称已存在",
+                        WaitTime = 3
+                    });
                     return;
                 }
 
                 var group = await _groupService.CreateGroupAsync(name.Trim(), parentId);
                 await LoadGroupsAsync(incremental: true);
-                Growl.Success("分组创建成功");
+                Growl.Success(new GrowlInfo
+                {
+                    Message = "分组创建成功",
+                    WaitTime = 3
+                });
             }
             // result == null 表示用户取消了，不需要处理
         }
         catch (Exception ex)
         {
-            Growl.Error($"创建分组时发生错误：{ex.Message}");
+            Growl.Error(new GrowlInfo
+            {
+                Message = $"创建分组时发生错误：{ex.Message}",
+                WaitTime = 3
+            });
         }
     }
 
@@ -186,7 +203,11 @@ public partial class GroupTreeViewModel : ObservableObject
 
         if (string.IsNullOrWhiteSpace(newName))
         {
-            Growl.Warning("分组名称不能为空");
+            Growl.Warning(new GrowlInfo
+            {
+                Message = "分组名称不能为空",
+                WaitTime = 3
+            });
             group.Name = await GetOriginalGroupNameAsync(group.Id);
             return;
         }
@@ -199,14 +220,22 @@ public partial class GroupTreeViewModel : ObservableObject
 
         if (await CheckGroupNameExistsAsync(newName, group.ParentId, group.Id))
         {
-            Growl.Warning("该分组名称已存在");
+            Growl.Warning(new GrowlInfo
+            {
+                Message = "该分组名称已存在",
+                WaitTime = 3
+            });
             group.Name = originalName;
             return;
         }
 
         await _groupService.RenameGroupAsync(group.Id, newName.Trim());
         await LoadGroupsAsync(incremental: true);
-        Growl.Success("重命名成功");
+        Growl.Success(new GrowlInfo
+        {
+            Message = "重命名成功",
+            WaitTime = 3
+        });
     }
 
     [RelayCommand]
@@ -238,7 +267,11 @@ public partial class GroupTreeViewModel : ObservableObject
         {
             await _groupService.DeleteGroupAsync(group.Id);
             await LoadGroupsAsync(incremental: true);
-            Growl.Success("删除成功");
+            Growl.Success(new GrowlInfo
+            {
+                Message = "删除成功",
+                WaitTime = 3
+            });
         }
     }
 

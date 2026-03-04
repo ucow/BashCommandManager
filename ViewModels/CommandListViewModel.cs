@@ -4,6 +4,7 @@ using BashCommandManager.Core.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HandyControl.Controls;
+using HandyControl.Data;
 using HandyControl.Tools.Extension;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -62,7 +63,11 @@ public partial class CommandListViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Growl.Error($"执行失败: {ex.Message}");
+            Growl.Error(new GrowlInfo
+            {
+                Message = $"执行失败: {ex.Message}",
+                WaitTime = 3
+            });
         }
     }
 
@@ -75,7 +80,11 @@ public partial class CommandListViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Growl.Error($"执行失败: {ex.Message}");
+            Growl.Error(new GrowlInfo
+            {
+                Message = $"执行失败: {ex.Message}",
+                WaitTime = 3
+            });
         }
     }
 
@@ -97,7 +106,11 @@ public partial class CommandListViewModel : ObservableObject
         {
             await _commandService.DeleteCommandAsync(command.Id);
             Commands.Remove(command);
-            Growl.Success("删除成功");
+            Growl.Success(new GrowlInfo
+            {
+                Message = "删除成功",
+                WaitTime = 3
+            });
         }
     }
 
@@ -117,7 +130,11 @@ public partial class CommandListViewModel : ObservableObject
 
         if (!Directory.Exists(directoryPath))
         {
-            Growl.Warning($"目录不存在: {directoryPath}");
+            Growl.Warning(new GrowlInfo
+            {
+                Message = $"目录不存在: {directoryPath}",
+                WaitTime = 3
+            });
             return;
         }
 
@@ -132,7 +149,11 @@ public partial class CommandListViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Growl.Error($"打开目录失败: {ex.Message}");
+            Growl.Error(new GrowlInfo
+            {
+                Message = $"打开目录失败: {ex.Message}",
+                WaitTime = 3
+            });
         }
     }
 }

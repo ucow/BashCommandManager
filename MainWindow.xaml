@@ -22,7 +22,7 @@
                        Text="批处理命令管理器"
                        MouseDoubleClick="TrayIcon_MouseDoubleClick">
             <hc:NotifyIcon.ContextMenu>
-                <ContextMenu Width="200">
+                <ContextMenu Width="150">
                     <MenuItem Header="显示窗口" Click="ShowWindow_Click"/>
                     <Separator/>
                     <MenuItem Header="退出" Click="Exit_Click"/>

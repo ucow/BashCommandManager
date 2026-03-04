@@ -3,6 +3,8 @@ using BashCommandManager.Core.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
 
 namespace BashCommandManager.ViewModels;
 
@@ -85,6 +87,41 @@ public partial class CommandListViewModel : ObservableObject
         {
             await _commandService.DeleteCommandAsync(command.Id);
             Commands.Remove(command);
+        }
+    }
+
+    [RelayCommand]
+    private void OpenDirectory(Command? command)
+    {
+        if (command == null || string.IsNullOrWhiteSpace(command.FilePath))
+        {
+            return;
+        }
+
+        var directoryPath = Path.GetDirectoryName(command.FilePath);
+        if (string.IsNullOrWhiteSpace(directoryPath))
+        {
+            return;
+        }
+
+        if (!Directory.Exists(directoryPath))
+        {
+            System.Windows.MessageBox.Show($"目录不存在: {directoryPath}", "错误", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"\"{directoryPath}\"",
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show($"打开目录失败: {ex.Message}", "错误", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
         }
     }
 }

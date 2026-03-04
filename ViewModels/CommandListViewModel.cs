@@ -80,8 +80,10 @@ public partial class CommandListViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task DeleteCommandAsync(Command command)
+    private async Task DeleteCommandAsync(Command? command)
     {
+        if (command == null) return;
+
         var dialog = new ConfirmDialogControl
         {
             Title = "确认删除",

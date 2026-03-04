@@ -96,7 +96,25 @@
                                         <TextBlock Text="{Binding FilePath}"
                                                    FontSize="12"
                                                    Foreground="{DynamicResource TertiaryTextBrush}"
-                                                   ToolTip="{Binding FilePath}"/>
+                                                   ToolTip="{Binding FilePath}"
+                                                   Cursor="Hand">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{DynamicResource TertiaryTextBrush}"/>
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                            <hc:Interaction.Triggers>
+                                                <hc:EventTrigger EventName="MouseLeftButtonUp">
+                                                    <hc:EventToCommand Command="{Binding DataContext.CommandListViewModel.OpenDirectoryCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                       CommandParameter="{Binding}"/>
+                                                </hc:EventTrigger>
+                                            </hc:Interaction.Triggers>
+                                        </TextBlock>
                                     </StackPanel>
 
                                     <StackPanel Grid.Column="1"

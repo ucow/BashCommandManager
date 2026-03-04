@@ -95,7 +95,8 @@
                                                    TextTrimming="CharacterEllipsis"/>
                                         <TextBlock Text="{Binding FilePath}"
                                                    FontSize="12"
-                                                   Foreground="{DynamicResource TertiaryTextBrush}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Background="Transparent"
                                                    ToolTip="{Binding FilePath}"
                                                    Cursor="Hand">
                                             <TextBlock.Style>

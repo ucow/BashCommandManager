@@ -93,7 +93,14 @@ public partial class MainViewModel : ObservableObject
                 return;
             }
 
-            await CommandListViewModel.ImportCommandAsync(GroupTreeViewModel.SelectedGroup.Id);
+            var commands = await CommandListViewModel.ImportCommandsAsync(GroupTreeViewModel.SelectedGroup.Id);
+            var count = commands?.Count() ?? 0;
+
+            if (count > 0)
+            {
+                System.Windows.MessageBox.Show($"成功导入 {count} 个命令", "导入完成");
+            }
+
             UpdateStatus();
         }
         catch (Exception ex)

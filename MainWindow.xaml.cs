@@ -67,12 +67,19 @@ public partial class MainWindow : HandyControl.Controls.Window
 
     private void TrayIcon_MouseDoubleClick(object sender, RoutedEventArgs e)
     {
-        // TODO: 实现双击托盘图标恢复窗口
+        ShowWindow();
     }
 
     private void ShowWindow_Click(object sender, RoutedEventArgs e)
     {
-        // TODO: 实现显示窗口
+        ShowWindow();
+    }
+
+    private void ShowWindow()
+    {
+        Show(); // 显示窗体
+        WindowState = WindowState.Normal; // 恢复窗体状态
+        Activate(); // 激活窗体到前台
     }
 
     private void Exit_Click(object sender, RoutedEventArgs e)

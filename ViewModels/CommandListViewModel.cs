@@ -62,7 +62,7 @@ public partial class CommandListViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show($"执行失败: {ex.Message}");
+            Growl.Error($"执行失败: {ex.Message}");
         }
     }
 
@@ -75,7 +75,7 @@ public partial class CommandListViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show($"执行失败: {ex.Message}");
+            Growl.Error($"执行失败: {ex.Message}");
         }
     }
 

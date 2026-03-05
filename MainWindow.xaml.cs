@@ -15,6 +15,9 @@ public partial class MainWindow : HandyControl.Controls.Window
         InitializeComponent();
         DataContext = viewModel;
 
+        // 动态加载图标（支持单文件发布）
+        LoadIcon();
+
         Loaded += async (s, e) =>
         {
             await viewModel.GroupTreeViewModel.LoadGroupsAsync();
@@ -22,6 +25,23 @@ public partial class MainWindow : HandyControl.Controls.Window
 
         // 订阅窗体状态变化事件
         StateChanged += MainWindow_StateChanged;
+    }
+
+    /// <summary>
+    /// 动态加载窗口和托盘图标
+    /// </summary>
+    private void LoadIcon()
+    {
+        try
+        {
+            // 使用 Pack URI 加载图标（支持单文件发布）
+            var iconUri = new Uri("pack://application:,,,/Assets/app.ico");
+            Icon = new System.Windows.Media.Imaging.BitmapImage(iconUri);
+        }
+        catch
+        {
+            // 图标加载失败不影响应用运行
+        }
     }
 
     private void GroupTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)

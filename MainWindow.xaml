@@ -5,7 +5,6 @@
            xmlns:vm="clr-namespace:BashCommandManager.ViewModels"
            xmlns:local="clr-namespace:BashCommandManager.Infrastructure.Controls"
            Title="批处理命令管理器"
-           Icon="Assets/app.ico"
            Height="600" Width="900"
            WindowStartupLocation="CenterScreen">
 
@@ -18,7 +17,6 @@
 
         <!-- 系统托盘图标 -->
         <hc:NotifyIcon x:Name="TrayIcon"
-                       Icon="Assets/app.ico"
                        Text="批处理命令管理器"
                        MouseDoubleClick="TrayIcon_MouseDoubleClick">
             <hc:NotifyIcon.ContextMenu>

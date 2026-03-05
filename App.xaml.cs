@@ -11,9 +11,28 @@ namespace BashCommandManager;
 public partial class App : Application
 {
     public static IServiceProvider ServiceProvider { get; private set; } = null!;
+    private SingleInstanceService? _singleInstanceService;
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        _singleInstanceService = new SingleInstanceService();
+
+        bool isFirstInstance = _singleInstanceService.Initialize(() =>
+        {
+            if (MainWindow != null)
+            {
+                MainWindow.Show();
+                MainWindow.WindowState = WindowState.Normal;
+                MainWindow.Activate();
+            }
+        });
+
+        if (!isFirstInstance)
+        {
+            Shutdown();
+            return;
+        }
+
         var services = new ServiceCollection();
 
         // 初始化数据库
@@ -29,6 +48,7 @@ public partial class App : Application
 
         // 创建主窗口
         var mainWindow = ServiceProvider.GetRequiredService<MainWindow>();
+        MainWindow = mainWindow;  // 赋值给属性以便回调访问
         mainWindow.Show();
     }
 
@@ -57,5 +77,11 @@ public partial class App : Application
 
         // Views
         services.AddScoped<MainWindow>();
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        _singleInstanceService?.Dispose();
+        base.OnExit(e);
     }
 }

@@ -1,6 +1,6 @@
 ; BashCommandManager 精简安装包 - 不包含 .NET 8 运行时（需要用户已安装）
 #define MyAppName "BashCommandManager"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.1.0"
 #define MyAppPublisher "BashCommandManager"
 #define MyAppURL "https://github.com/ucow/BashCommandManager"
 #define MyAppExeName "BashCommandManager.exe"

@@ -9,8 +9,9 @@ namespace BashCommandManager.Core.Services
 {
     public class SingleInstanceService : IDisposable
     {
-        private const string MutexName = "BashCommandManager_SingleInstance_Mutex";
-        private const string PipeName = "BashCommandManager_SingleInstance_Pipe";
+        // 使用 Global\ 前缀确保跨终端会话共享
+        private const string MutexName = "Global\\BashCommandManager_SingleInstance_Mutex_v1";
+        private const string PipeName = "BashCommandManager_SingleInstance_Pipe_v1";
         private const string ActivateMessage = "ACTIVATE";
         private const int PipeConnectionTimeoutMs = 1000;
 

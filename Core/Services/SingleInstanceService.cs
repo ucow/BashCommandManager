@@ -9,24 +9,20 @@ namespace BashCommandManager.Core.Services
 {
     public class SingleInstanceService : IDisposable
     {
-        // 使用 Global\ 前缀确保跨终端会话共享
-        private const string MutexName = "Global\\BashCommandManager_SingleInstance_Mutex_v1";
-        private const string PipeName = "BashCommandManager_SingleInstance_Pipe_v1";
+        private const string MutexName = "BashCommandManager_SingleInstance_Mutex_v2";
+        private const string PipeName = "BashCommandManager_SingleInstance_Pipe_v2";
         private const string ActivateMessage = "ACTIVATE";
         private const int PipeConnectionTimeoutMs = 1000;
 
         private Mutex? _mutex;
+        private bool _ownsMutex;
         private CancellationTokenSource? _cancellationTokenSource;
         private Task? _pipeServerTask;
         private Action? _onActivateCallback;
-        private bool _isFirstInstance;
-        private bool _disposed;
 
         /// <summary>
         /// 初始化单例服务
         /// </summary>
-        /// <param name="onActivateCallback">当收到激活消息时的回调（在主实例中执行）</param>
-        /// <returns>如果是第一个实例返回 true，否则返回 false</returns>
         public bool Initialize(Action onActivateCallback)
         {
             _onActivateCallback = onActivateCallback;
@@ -34,30 +30,42 @@ namespace BashCommandManager.Core.Services
 
             try
             {
-                // 尝试创建 Mutex（立即获取所有权）
-                _mutex = new Mutex(true, MutexName, out bool createdNew);
-                _isFirstInstance = createdNew;
-
-                if (createdNew)
+                // 尝试打开已存在的 Mutex
+                try
                 {
-                    // 第一个实例：启动命名管道服务器监听
+                    _mutex = Mutex.OpenExisting(MutexName);
+                    // Mutex 已存在，说明有另一个实例在运行
+                    _ownsMutex = false;
+                }
+                catch (WaitHandleCannotBeOpenedException)
+                {
+                    // Mutex 不存在，创建新的
+                    _mutex = new Mutex(false, MutexName);
+                    _ownsMutex = true;
+                }
+
+                // 尝试获取 Mutex 所有权
+                if (_mutex.WaitOne(0, false))
+                {
+                    // 成功获取所有权，这是第一个实例
+                    _ownsMutex = true;
                     StartPipeServer();
                     return true;
                 }
                 else
                 {
-                    // 不是第一个实例：无法获取Mutex所有权，关闭句柄
+                    // 无法获取所有权，已有实例在运行
+                    _ownsMutex = false;
                     _mutex.Close();
                     _mutex = null;
-                    // 向主实例发送激活消息
                     NotifyFirstInstance();
                     return false;
                 }
             }
             catch (Exception ex)
             {
-                // 异常处理：默认允许启动
                 System.Diagnostics.Debug.WriteLine($"SingleInstanceService 初始化异常: {ex.Message}");
+                // 异常时允许启动（降级处理）
                 return true;
             }
         }
@@ -80,16 +88,13 @@ namespace BashCommandManager.Core.Services
                             PipeTransmissionMode.Message,
                             PipeOptions.Asynchronous);
 
-                        // 等待客户端连接
                         await pipeServer.WaitForConnectionAsync(_cancellationTokenSource?.Token ?? default);
 
-                        // 读取消息
                         using var reader = new StreamReader(pipeServer);
                         string? message = await reader.ReadLineAsync();
 
                         if (message == ActivateMessage)
                         {
-                            // 在主线程执行回调
                             Application.Current.Dispatcher.Invoke(() =>
                             {
                                 try
@@ -105,18 +110,10 @@ namespace BashCommandManager.Core.Services
                     }
                     catch (OperationCanceledException)
                     {
-                        // 正常取消，退出循环
                         break;
-                    }
-                    catch (IOException ex)
-                    {
-                        // 管道断开或其他IO错误
-                        System.Diagnostics.Debug.WriteLine($"管道服务器 IO 异常: {ex.Message}");
-                        await Task.Delay(100);
                     }
                     catch (Exception ex)
                     {
-                        // 其他异常，等待后重试
                         System.Diagnostics.Debug.WriteLine($"管道服务器异常: {ex.Message}");
                         await Task.Delay(100);
                     }
@@ -137,26 +134,14 @@ namespace BashCommandManager.Core.Services
                     PipeDirection.Out,
                     PipeOptions.Asynchronous);
 
-                // 连接到服务器，设置超时
                 pipeClient.Connect(PipeConnectionTimeoutMs);
 
                 using var writer = new StreamWriter(pipeClient);
                 writer.WriteLine(ActivateMessage);
                 writer.Flush();
             }
-            catch (TimeoutException)
-            {
-                // 连接超时，可能是主实例正在启动中
-                System.Diagnostics.Debug.WriteLine("连接到主实例超时");
-            }
-            catch (IOException ex)
-            {
-                // 管道不存在或其他IO错误
-                System.Diagnostics.Debug.WriteLine($"通知主实例 IO 异常: {ex.Message}");
-            }
             catch (Exception ex)
             {
-                // 其他异常
                 System.Diagnostics.Debug.WriteLine($"通知主实例异常: {ex.Message}");
             }
         }
@@ -166,52 +151,28 @@ namespace BashCommandManager.Core.Services
         /// </summary>
         public void Dispose()
         {
-            if (_disposed)
-                return;
+            _cancellationTokenSource?.Cancel();
 
             try
             {
-                // 取消管道服务器任务
-                _cancellationTokenSource?.Cancel();
+                _pipeServerTask?.Wait(TimeSpan.FromSeconds(1));
+            }
+            catch { }
 
-                // 等待管道服务器任务完成
-                if (_pipeServerTask != null && !_pipeServerTask.IsCompleted)
+            _cancellationTokenSource?.Dispose();
+
+            if (_mutex != null)
+            {
+                if (_ownsMutex)
                 {
                     try
                     {
-                        _pipeServerTask.Wait(TimeSpan.FromSeconds(1));
-                    }
-                    catch (AggregateException)
-                    {
-                        // 忽略取消异常
-                    }
-                }
-
-                _cancellationTokenSource?.Dispose();
-
-                // 释放 Mutex
-                if (_mutex != null)
-                {
-                    try
-                    {
-                        // 只有当前线程拥有Mutex时才释放
                         _mutex.ReleaseMutex();
                     }
-                    catch (ApplicationException)
-                    {
-                        // 线程不拥有Mutex，忽略
-                    }
-                    _mutex.Dispose();
-                    _mutex = null;
+                    catch { }
                 }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"SingleInstanceService 释放资源异常: {ex.Message}");
-            }
-            finally
-            {
-                _disposed = true;
+                _mutex.Dispose();
+                _mutex = null;
             }
         }
     }

@@ -33,8 +33,8 @@ namespace BashCommandManager.Core.Services
 
             try
             {
-                // 尝试创建 Mutex
-                _mutex = new Mutex(false, MutexName, out bool createdNew);
+                // 尝试创建 Mutex（立即获取所有权）
+                _mutex = new Mutex(true, MutexName, out bool createdNew);
                 _isFirstInstance = createdNew;
 
                 if (createdNew)
@@ -45,7 +45,10 @@ namespace BashCommandManager.Core.Services
                 }
                 else
                 {
-                    // 不是第一个实例：向主实例发送激活消息
+                    // 不是第一个实例：无法获取Mutex所有权，关闭句柄
+                    _mutex.Close();
+                    _mutex = null;
+                    // 向主实例发送激活消息
                     NotifyFirstInstance();
                     return false;
                 }
@@ -188,9 +191,14 @@ namespace BashCommandManager.Core.Services
                 // 释放 Mutex
                 if (_mutex != null)
                 {
-                    if (_isFirstInstance)
+                    try
                     {
+                        // 只有当前线程拥有Mutex时才释放
                         _mutex.ReleaseMutex();
+                    }
+                    catch (ApplicationException)
+                    {
+                        // 线程不拥有Mutex，忽略
                     }
                     _mutex.Dispose();
                     _mutex = null;

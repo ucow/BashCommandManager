@@ -20,6 +20,40 @@ public partial class CommandListViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<Command> _commands = new();
 
+    // 新增：排序相关属性
+    [ObservableProperty]
+    private SortOption _currentSortOption = SortOption.Name;
+
+    [ObservableProperty]
+    private SortDirection _currentSortDirection = SortDirection.Ascending;
+
+    // 新增：用于 UI 绑定的属性
+    public IEnumerable<SortOption> SortOptions => Enum.GetValues<SortOption>();
+
+    // 新增：当前搜索关键词（用于重新应用搜索）
+    private string? _currentSearchKeyword;
+    private int _currentGroupId = 0; // 0 表示所有命令
+
+    // 新增：用于 UI 显示的排序方向图标
+    public string SortDirectionIcon => CurrentSortDirection == SortDirection.Ascending ? "▲" : "▼";
+
+    // 新增：用于绑定 ToggleButton 的 IsChecked
+    public bool IsDescending
+    {
+        get => CurrentSortDirection == SortDirection.Descending;
+        set
+        {
+            if (value && CurrentSortDirection != SortDirection.Descending)
+            {
+                CurrentSortDirection = SortDirection.Descending;
+            }
+            else if (!value && CurrentSortDirection != SortDirection.Ascending)
+            {
+                CurrentSortDirection = SortDirection.Ascending;
+            }
+        }
+    }
+
     public CommandListViewModel(ICommandService commandService, ICommandExecutor executor)
     {
         _commandService = commandService;
@@ -28,20 +62,87 @@ public partial class CommandListViewModel : ObservableObject
 
     public async Task LoadCommandsAsync(int groupId)
     {
-        var commands = await _commandService.GetByGroupAsync(groupId);
+        _currentGroupId = groupId;
+        _currentSearchKeyword = null;
+        var commands = await _commandService.GetByGroupAsync(groupId, CurrentSortOption, CurrentSortDirection);
         Commands = new ObservableCollection<Command>(commands);
     }
 
     public async Task LoadAllCommandsAsync()
     {
-        var commands = await _commandService.GetAllAsync();
+        _currentGroupId = 0;
+        _currentSearchKeyword = null;
+        var commands = await _commandService.GetAllAsync(CurrentSortOption, CurrentSortDirection);
         Commands = new ObservableCollection<Command>(commands);
     }
 
     public async Task SearchAsync(string keyword)
     {
-        var commands = await _commandService.SearchAsync(keyword);
+        _currentSearchKeyword = keyword;
+        IEnumerable<Command> commands;
+
+        if (string.IsNullOrWhiteSpace(keyword))
+        {
+            // 空搜索时恢复到分组视图
+            if (_currentGroupId == 0)
+            {
+                commands = await _commandService.GetAllAsync(CurrentSortOption, CurrentSortDirection);
+            }
+            else
+            {
+                commands = await _commandService.GetByGroupAsync(_currentGroupId, CurrentSortOption, CurrentSortDirection);
+            }
+        }
+        else if (_currentGroupId == 0)
+        {
+            // 在所有命令中搜索
+            commands = await _commandService.SearchAsync(keyword, CurrentSortOption, CurrentSortDirection);
+        }
+        else
+        {
+            // 在指定分组中搜索
+            commands = await _commandService.SearchInGroupAsync(keyword, _currentGroupId, CurrentSortOption, CurrentSortDirection);
+        }
+
         Commands = new ObservableCollection<Command>(commands);
+    }
+
+    [RelayCommand]
+    private async Task ApplySortAsync()
+    {
+        // 重新加载当前视图以应用新排序
+        if (!string.IsNullOrWhiteSpace(_currentSearchKeyword))
+        {
+            await SearchAsync(_currentSearchKeyword);
+        }
+        else if (_currentGroupId == 0)
+        {
+            await LoadAllCommandsAsync();
+        }
+        else
+        {
+            await LoadCommandsAsync(_currentGroupId);
+        }
+    }
+
+    [RelayCommand]
+    private void ToggleSortDirection()
+    {
+        CurrentSortDirection = CurrentSortDirection == SortDirection.Ascending
+            ? SortDirection.Descending
+            : SortDirection.Ascending;
+        ApplySortCommand.ExecuteAsync(null);
+    }
+
+    partial void OnCurrentSortOptionChanged(SortOption value)
+    {
+        ApplySortCommand.ExecuteAsync(null);
+    }
+
+    partial void OnCurrentSortDirectionChanged(SortDirection value)
+    {
+        OnPropertyChanged(nameof(SortDirectionIcon));
+        OnPropertyChanged(nameof(IsDescending));
     }
 
     public async Task<IEnumerable<Command>> ImportCommandsAsync(int groupId)

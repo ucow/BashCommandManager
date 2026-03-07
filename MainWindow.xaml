@@ -34,10 +34,25 @@
                         Command="{Binding ImportCommandCommand}"/>
             </hc:ButtonGroup>
             <Separator/>
+
+            <!-- 排序控件 -->
+            <ComboBox Width="120"
+                      ItemsSource="{Binding CommandListViewModel.SortOptions}"
+                      SelectedItem="{Binding CommandListViewModel.CurrentSortOption}"
+                      hc:InfoElement.Placeholder="排序方式"/>
+
+            <ToggleButton Width="30"
+                          IsChecked="{Binding CommandListViewModel.IsDescending}"
+                          Command="{Binding CommandListViewModel.ToggleSortDirectionCommand}"
+                          Content="{Binding CommandListViewModel.SortDirectionIcon}"/>
+
+            <Separator/>
+
             <TextBox x:Name="SearchBox"
                      Width="200"
                      hc:InfoElement.Placeholder="搜索命令..."
-                     Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}"/>
+                     Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}"
+                     KeyDown="SearchBox_KeyDown"/>
             <Button Content="搜索"
                     Command="{Binding SearchCommand}"/>
         </ToolBar>

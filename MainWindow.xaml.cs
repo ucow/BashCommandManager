@@ -1,5 +1,7 @@
+using BashCommandManager.Core.Services;
 using BashCommandManager.ViewModels;
 using HandyControl.Controls;
+using HandyControl.Data;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -10,11 +12,20 @@ namespace BashCommandManager;
 public partial class MainWindow : HandyControl.Controls.Window
 {
     private bool _isExiting = false; // 标记是否真正退出
+    private readonly IGlobalHotkeyService _hotkeyService;
+    private readonly ISettingsService _settingsService;
 
     public MainWindow(MainViewModel viewModel)
     {
         InitializeComponent();
         DataContext = viewModel;
+
+        // 从服务提供者获取服务
+        _hotkeyService = ((App)Application.Current).ServiceProvider.GetRequiredService<IGlobalHotkeyService>();
+        _settingsService = ((App)Application.Current).ServiceProvider.GetRequiredService<ISettingsService>();
+
+        // 订阅快捷键事件
+        _hotkeyService.HotkeyPressed += HotkeyService_HotkeyPressed;
 
         // 动态加载图标（支持单文件发布）
         LoadIcon();
@@ -22,10 +33,72 @@ public partial class MainWindow : HandyControl.Controls.Window
         Loaded += async (s, e) =>
         {
             await viewModel.GroupTreeViewModel.LoadGroupsAsync();
+
+            // 窗口加载完成后注册快捷键
+            RegisterHotkey();
         };
 
         // 订阅窗体状态变化事件
         StateChanged += MainWindow_StateChanged;
+
+        // 窗口关闭时注销快捷键
+        Closing += MainWindow_Closing;
+    }
+
+    private void RegisterHotkey()
+    {
+        var settings = _settingsService.GetHotkeySettings();
+        if (settings.Enabled)
+        {
+            var registered = _hotkeyService.Register(this, settings.Key, settings.Modifiers);
+            if (!registered)
+            {
+                Growl.Warning(new GrowlInfo
+                {
+                    Message = "全局快捷键注册失败，可能已被其他程序占用",
+                    WaitTime = 5
+                });
+            }
+        }
+    }
+
+    private void MainWindow_Closing(object? sender, CancelEventArgs e)
+    {
+        _hotkeyService.Unregister();
+        _hotkeyService.HotkeyPressed -= HotkeyService_HotkeyPressed;
+    }
+
+    private void HotkeyService_HotkeyPressed(object? sender, EventArgs e)
+    {
+        // 在 UI 线程上执行
+        Dispatcher.Invoke(() =>
+        {
+            ToggleWindowVisibility();
+        });
+    }
+
+    private void ToggleWindowVisibility()
+    {
+        if (WindowState == WindowState.Minimized || !IsVisible)
+        {
+            // 显示窗口
+            Show();
+            WindowState = WindowState.Normal;
+            Activate();
+            Focus();
+        }
+        else if (IsActive)
+        {
+            // 当前是活动窗口，最小化到托盘
+            WindowState = WindowState.Minimized;
+            Hide();
+        }
+        else
+        {
+            // 窗口可见但不是活动窗口，激活它
+            Activate();
+            Focus();
+        }
     }
 
     /// <summary>

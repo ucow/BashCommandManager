@@ -80,6 +80,12 @@
                 <Button Content="完成"
                         Command="{Binding CommandListViewModel.ExitBatchModeCommand}"/>
             </StackPanel>
+
+            <Separator/>
+
+            <!-- 设置按钮 -->
+            <Button Content="设置"
+                    Command="{Binding OpenSettingsCommand}"/>
         </ToolBar>
 
         <Grid Grid.Row="1">

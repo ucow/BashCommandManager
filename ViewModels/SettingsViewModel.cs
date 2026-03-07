@@ -26,12 +26,6 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasError;
 
-    [ObservableProperty]
-    private bool _isCapturingHotkey;
-
-    private Key _capturedKey;
-    private ModifierKeys _capturedModifiers;
-
     public SettingsViewModel(ISettingsService settingsService, IGlobalHotkeyService hotkeyService)
     {
         _settingsService = settingsService;

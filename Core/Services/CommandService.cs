@@ -18,6 +18,10 @@ public interface ICommandService
     Task<IEnumerable<Command>> GetAllAsync(SortOption sortBy, SortDirection direction);
     Task<IEnumerable<Command>> SearchAsync(string keyword, SortOption sortBy, SortDirection direction);
     Task<IEnumerable<Command>> SearchInGroupAsync(string keyword, int groupId, SortOption sortBy, SortDirection direction);
+
+    // 新增：移动命令
+    Task MoveCommandAsync(int commandId, int targetGroupId);
+    Task MoveCommandsAsync(IEnumerable<int> commandIds, int targetGroupId);
 }
 
 public class CommandService : ICommandService
@@ -101,5 +105,18 @@ public class CommandService : ICommandService
     public async Task<IEnumerable<Command>> SearchInGroupAsync(string keyword, int groupId, SortOption sortBy, SortDirection direction)
     {
         return await _repository.SearchInGroupAsync(keyword, groupId, sortBy, direction);
+    }
+
+    public async Task MoveCommandAsync(int commandId, int targetGroupId)
+    {
+        await _repository.MoveToGroupAsync(commandId, targetGroupId);
+    }
+
+    public async Task MoveCommandsAsync(IEnumerable<int> commandIds, int targetGroupId)
+    {
+        foreach (var commandId in commandIds)
+        {
+            await _repository.MoveToGroupAsync(commandId, targetGroupId);
+        }
     }
 }

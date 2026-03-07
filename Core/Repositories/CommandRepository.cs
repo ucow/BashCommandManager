@@ -21,6 +21,9 @@ public interface ICommandRepository
 
     // 新增：搜索时分组筛选
     Task<IEnumerable<Command>> SearchInGroupAsync(string keyword, int groupId, SortOption sortBy, SortDirection direction);
+
+    // 新增：移动命令到指定分组
+    Task MoveToGroupAsync(int commandId, int targetGroupId);
 }
 
 public class CommandRepository : ICommandRepository
@@ -130,5 +133,11 @@ public class CommandRepository : ICommandRepository
         };
         var dir = direction == SortDirection.Ascending ? "ASC" : "DESC";
         return $"ORDER BY {column} {dir}";
+    }
+
+    public async Task MoveToGroupAsync(int commandId, int targetGroupId)
+    {
+        var sql = "UPDATE Commands SET GroupId = @TargetGroupId WHERE Id = @CommandId";
+        await _db.ExecuteAsync(sql, new { CommandId = commandId, TargetGroupId = targetGroupId });
     }
 }

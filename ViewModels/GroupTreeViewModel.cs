@@ -33,11 +33,11 @@ public partial class GroupTreeViewModel : ObservableObject
     {
         var groups = await _groupService.GetGroupTreeAsync();
 
-        // 插入虚拟"全部命令"节点
+        // 插入虚拟"常用命令"节点
         var allCommandsNode = new Group
         {
             Id = 0,
-            Name = "全部命令",
+            Name = "常用命令",
             IsVirtual = true
         };
         groups.Insert(0, allCommandsNode);
@@ -53,7 +53,7 @@ public partial class GroupTreeViewModel : ObservableObject
             SyncGroupTree(Groups, groups);
         }
 
-        // 首次加载时自动选中"全部命令"节点
+        // 首次加载时自动选中"常用命令"节点
         if (SelectedGroup == null && Groups.Count > 0)
         {
             SelectedGroup = Groups.FirstOrDefault(g => g.IsVirtual);

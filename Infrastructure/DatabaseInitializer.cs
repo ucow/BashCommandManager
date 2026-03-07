@@ -41,6 +41,8 @@ public class DatabaseInitializer
                 FilePath TEXT NOT NULL,
                 GroupId INTEGER NOT NULL,
                 SortOrder INTEGER DEFAULT 0,
+                ExecutionCount INTEGER DEFAULT 0,
+                LastExecutedAt DATETIME,
                 FOREIGN KEY (GroupId) REFERENCES Groups(Id) ON DELETE CASCADE
             );
 
@@ -54,5 +56,23 @@ public class DatabaseInitializer
 
         using var command = new SQLiteCommand(sql, connection);
         command.ExecuteNonQuery();
+
+        // 迁移：添加新列（如果表已存在但缺少新列）
+        AddColumnIfNotExists(connection, "Commands", "ExecutionCount", "INTEGER DEFAULT 0");
+        AddColumnIfNotExists(connection, "Commands", "LastExecutedAt", "DATETIME");
+    }
+
+    private void AddColumnIfNotExists(SQLiteConnection connection, string table, string column, string type)
+    {
+        var checkSql = $@"
+            SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = '{column}'";
+        using var checkCommand = new SQLiteCommand(checkSql, connection);
+        var exists = Convert.ToInt32(checkCommand.ExecuteScalar());
+        if (exists == 0)
+        {
+            var alterSql = $"ALTER TABLE {table} ADD COLUMN {column} {type}";
+            using var alterCommand = new SQLiteCommand(alterSql, connection);
+            alterCommand.ExecuteNonQuery();
+        }
     }
 }

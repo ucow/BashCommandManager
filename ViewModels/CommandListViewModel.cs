@@ -171,11 +171,12 @@ public partial class CommandListViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void ExecuteCommand(Command command)
+    private async Task ExecuteCommandAsync(Command command)
     {
         try
         {
             _executor.Execute(command, runAsAdmin: false);
+            await _commandService.RecordExecutionAsync(command.Id);
         }
         catch (Exception ex)
         {
@@ -188,11 +189,12 @@ public partial class CommandListViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void ExecuteAsAdmin(Command command)
+    private async Task ExecuteAsAdminAsync(Command command)
     {
         try
         {
             _executor.Execute(command, runAsAdmin: true);
+            await _commandService.RecordExecutionAsync(command.Id);
         }
         catch (Exception ex)
         {

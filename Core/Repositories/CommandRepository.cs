@@ -13,6 +13,14 @@ public interface ICommandRepository
     Task DeleteAsync(int id);
     Task<IEnumerable<Command>> SearchAsync(string keyword);
     Task<IEnumerable<Command>> GetAllAsync();
+
+    // 新增：支持排序的查询
+    Task<IEnumerable<Command>> GetByGroupIdWithSortAsync(int groupId, SortOption sortBy, SortDirection direction);
+    Task<IEnumerable<Command>> GetAllWithSortAsync(SortOption sortBy, SortDirection direction);
+    Task<IEnumerable<Command>> SearchWithSortAsync(string keyword, SortOption sortBy, SortDirection direction);
+
+    // 新增：搜索时分组筛选
+    Task<IEnumerable<Command>> SearchInGroupAsync(string keyword, int groupId, SortOption sortBy, SortDirection direction);
 }
 
 public class CommandRepository : ICommandRepository
@@ -74,5 +82,53 @@ public class CommandRepository : ICommandRepository
     {
         var sql = "SELECT * FROM Commands ORDER BY Name";
         return await _db.QueryAsync<Command>(sql);
+    }
+
+    public async Task<IEnumerable<Command>> GetByGroupIdWithSortAsync(int groupId, SortOption sortBy, SortDirection direction)
+    {
+        var orderBy = GetOrderByClause(sortBy, direction);
+        var sql = $"SELECT * FROM Commands WHERE GroupId = @GroupId {orderBy}";
+        return await _db.QueryAsync<Command>(sql, new { GroupId = groupId });
+    }
+
+    public async Task<IEnumerable<Command>> GetAllWithSortAsync(SortOption sortBy, SortDirection direction)
+    {
+        var orderBy = GetOrderByClause(sortBy, direction);
+        var sql = $"SELECT * FROM Commands {orderBy}";
+        return await _db.QueryAsync<Command>(sql);
+    }
+
+    public async Task<IEnumerable<Command>> SearchWithSortAsync(string keyword, SortOption sortBy, SortDirection direction)
+    {
+        var orderBy = GetOrderByClause(sortBy, direction);
+        var sql = $@"
+            SELECT * FROM Commands
+            WHERE Name LIKE @Keyword OR Description LIKE @Keyword
+            {orderBy}";
+        return await _db.QueryAsync<Command>(sql, new { Keyword = $"%{keyword}%" });
+    }
+
+    public async Task<IEnumerable<Command>> SearchInGroupAsync(string keyword, int groupId, SortOption sortBy, SortDirection direction)
+    {
+        var orderBy = GetOrderByClause(sortBy, direction);
+        var sql = $@"
+            SELECT * FROM Commands
+            WHERE (Name LIKE @Keyword OR Description LIKE @Keyword)
+            AND GroupId = @GroupId
+            {orderBy}";
+        return await _db.QueryAsync<Command>(sql, new { Keyword = $"%{keyword}%", GroupId = groupId });
+    }
+
+    private string GetOrderByClause(SortOption sortBy, SortDirection direction)
+    {
+        var column = sortBy switch
+        {
+            SortOption.Name => "Name",
+            SortOption.LastExecutedAt => "LastExecutedAt",
+            SortOption.ExecutionCount => "ExecutionCount",
+            _ => "Name"
+        };
+        var dir = direction == SortDirection.Ascending ? "ASC" : "DESC";
+        return $"ORDER BY {column} {dir}";
     }
 }

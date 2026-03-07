@@ -12,6 +12,12 @@ public interface ICommandService
     Task DeleteCommandAsync(int id);
     Task<IEnumerable<Command>> SearchAsync(string keyword);
     Task<IEnumerable<Command>> GetAllAsync();
+
+    // 新增：支持排序的方法
+    Task<IEnumerable<Command>> GetByGroupAsync(int groupId, SortOption sortBy, SortDirection direction);
+    Task<IEnumerable<Command>> GetAllAsync(SortOption sortBy, SortDirection direction);
+    Task<IEnumerable<Command>> SearchAsync(string keyword, SortOption sortBy, SortDirection direction);
+    Task<IEnumerable<Command>> SearchInGroupAsync(string keyword, int groupId, SortOption sortBy, SortDirection direction);
 }
 
 public class CommandService : ICommandService
@@ -75,5 +81,25 @@ public class CommandService : ICommandService
     public async Task<IEnumerable<Command>> GetAllAsync()
     {
         return await _repository.GetAllAsync();
+    }
+
+    public async Task<IEnumerable<Command>> GetByGroupAsync(int groupId, SortOption sortBy, SortDirection direction)
+    {
+        return await _repository.GetByGroupIdWithSortAsync(groupId, sortBy, direction);
+    }
+
+    public async Task<IEnumerable<Command>> GetAllAsync(SortOption sortBy, SortDirection direction)
+    {
+        return await _repository.GetAllWithSortAsync(sortBy, direction);
+    }
+
+    public async Task<IEnumerable<Command>> SearchAsync(string keyword, SortOption sortBy, SortDirection direction)
+    {
+        return await _repository.SearchWithSortAsync(keyword, sortBy, direction);
+    }
+
+    public async Task<IEnumerable<Command>> SearchInGroupAsync(string keyword, int groupId, SortOption sortBy, SortDirection direction)
+    {
+        return await _repository.SearchInGroupAsync(keyword, groupId, sortBy, direction);
     }
 }

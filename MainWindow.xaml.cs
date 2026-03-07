@@ -3,6 +3,7 @@ using HandyControl.Controls;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 
 namespace BashCommandManager;
 
@@ -132,5 +133,17 @@ public partial class MainWindow : HandyControl.Controls.Window
         WindowState = WindowState.Minimized; // 触发最小化
         Hide(); // 隐藏窗体
         base.OnClosing(e);
+    }
+
+    private void SearchBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            // 触发搜索命令
+            if (DataContext is MainViewModel vm)
+            {
+                vm.SearchCommand.Execute(null);
+            }
+        }
     }
 }

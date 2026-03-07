@@ -17,6 +17,10 @@ public class Command
     public int GroupId { get; set; }
     public int SortOrder { get; set; }
 
+    // 新增：执行统计字段
+    public int ExecutionCount { get; set; }
+    public DateTime? LastExecutedAt { get; set; }
+
     // 运行时状态（不持久化）
     public CommandStatus Status { get; set; } = CommandStatus.Idle;
 }

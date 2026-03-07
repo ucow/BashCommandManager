@@ -22,6 +22,12 @@ public interface ICommandService
     // 新增：移动命令
     Task MoveCommandAsync(int commandId, int targetGroupId);
     Task MoveCommandsAsync(IEnumerable<int> commandIds, int targetGroupId);
+
+    // 新增：获取常用命令
+    Task<IEnumerable<Command>> GetFrequentlyUsedAsync(int limit = 10);
+
+    // 新增：记录命令执行
+    Task RecordExecutionAsync(int commandId);
 }
 
 public class CommandService : ICommandService
@@ -117,6 +123,22 @@ public class CommandService : ICommandService
         foreach (var commandId in commandIds)
         {
             await _repository.MoveToGroupAsync(commandId, targetGroupId);
+        }
+    }
+
+    public async Task<IEnumerable<Command>> GetFrequentlyUsedAsync(int limit = 10)
+    {
+        return await _repository.GetFrequentlyUsedAsync(limit);
+    }
+
+    public async Task RecordExecutionAsync(int commandId)
+    {
+        var command = await _repository.GetByIdAsync(commandId);
+        if (command != null)
+        {
+            command.ExecutionCount++;
+            command.LastExecutedAt = DateTime.Now;
+            await _repository.UpdateAsync(command);
         }
     }
 }

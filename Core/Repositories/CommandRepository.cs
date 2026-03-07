@@ -24,6 +24,9 @@ public interface ICommandRepository
 
     // 新增：移动命令到指定分组
     Task MoveToGroupAsync(int commandId, int targetGroupId);
+
+    // 新增：获取常用命令
+    Task<IEnumerable<Command>> GetFrequentlyUsedAsync(int limit = 10);
 }
 
 public class CommandRepository : ICommandRepository
@@ -139,5 +142,16 @@ public class CommandRepository : ICommandRepository
     {
         var sql = "UPDATE Commands SET GroupId = @TargetGroupId WHERE Id = @CommandId";
         await _db.ExecuteAsync(sql, new { CommandId = commandId, TargetGroupId = targetGroupId });
+    }
+
+    public async Task<IEnumerable<Command>> GetFrequentlyUsedAsync(int limit = 10)
+    {
+        // 获取有执行记录的命令，按执行次数和最近执行时间排序
+        var sql = @"
+            SELECT * FROM Commands
+            WHERE ExecutionCount > 0 OR LastExecutedAt IS NOT NULL
+            ORDER BY ExecutionCount DESC, LastExecutedAt DESC
+            LIMIT @Limit";
+        return await _db.QueryAsync<Command>(sql, new { Limit = limit });
     }
 }

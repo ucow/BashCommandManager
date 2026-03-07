@@ -70,6 +70,12 @@ public partial class App : Application
         services.AddScoped<ICommandService, CommandService>();
         services.AddSingleton<ICommandExecutor, CommandExecutor>();
 
+        // 新增：设置服务（单例）
+        services.AddSingleton<ISettingsService, SettingsService>();
+
+        // 新增：全局快捷键服务（单例）
+        services.AddSingleton<IGlobalHotkeyService, GlobalHotkeyService>();
+
         // ViewModels
         services.AddScoped<GroupTreeViewModel>();
         services.AddScoped<CommandListViewModel>();

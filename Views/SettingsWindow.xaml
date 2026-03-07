@@ -48,7 +48,7 @@
                             <TextBlock Text="{Binding ErrorMessage}"
                                       Foreground="Red"
                                       TextWrapping="Wrap"
-                                      Visibility="{Binding HasError, Converter={StaticResource BoolToVisibilityConverter}}"
+                                      Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}"
                                       Margin="0,10,0,0"/>
                         </StackPanel>
                     </GroupBox>

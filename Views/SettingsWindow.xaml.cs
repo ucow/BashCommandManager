@@ -1,4 +1,5 @@
 using BashCommandManager.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 using System.Windows;
 
 namespace BashCommandManager.Views;
@@ -8,6 +9,6 @@ public partial class SettingsWindow : Window
     public SettingsWindow()
     {
         InitializeComponent();
-        DataContext = ((App)Application.Current).ServiceProvider.GetRequiredService<SettingsViewModel>();
+        DataContext = App.ServiceProvider.GetRequiredService<SettingsViewModel>();
     }
 }

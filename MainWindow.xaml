@@ -55,6 +55,31 @@
                      KeyDown="SearchBox_KeyDown"/>
             <Button Content="搜索"
                     Command="{Binding SearchCommand}"/>
+
+            <Separator/>
+
+            <!-- 批量操作按钮 -->
+            <Button Content="批量操作"
+                    Command="{Binding CommandListViewModel.EnterBatchModeCommand}"
+                    Visibility="{Binding CommandListViewModel.IsBatchMode, Converter={StaticResource InverseBoolToVisibility}}"/>
+
+            <StackPanel Orientation="Horizontal"
+                        Visibility="{Binding CommandListViewModel.IsBatchMode, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock Text="{Binding CommandListViewModel.SelectedCount, StringFormat='选中 {0} 项'}"
+                          VerticalAlignment="Center"
+                          Margin="0,0,10,0"/>
+                <Button Content="批量删除"
+                        Command="{Binding CommandListViewModel.BatchDeleteCommand}"
+                        Margin="0,0,5,0"/>
+                <Button Content="批量移动"
+                        Command="{Binding CommandListViewModel.BatchMoveCommand}"
+                        Margin="0,0,5,0"/>
+                <Button Content="全选"
+                        Command="{Binding CommandListViewModel.SelectAllCommand}"
+                        Margin="0,0,5,0"/>
+                <Button Content="完成"
+                        Command="{Binding CommandListViewModel.ExitBatchModeCommand}"/>
+            </StackPanel>
         </ToolBar>
 
         <Grid Grid.Row="1">
@@ -110,11 +135,19 @@
                             <hc:Card Margin="0,5" BorderThickness="1">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
 
-                                    <StackPanel Grid.Column="0" Margin="10">
+                                    <!-- 批量选择复选框 -->
+                                    <CheckBox Grid.Column="0"
+                                              Margin="10,0"
+                                              VerticalAlignment="Center"
+                                              Visibility="{Binding DataContext.CommandListViewModel.IsBatchMode, RelativeSource={RelativeSource AncestorType=ItemsControl}, Converter={StaticResource BoolToVisibility}}"
+                                              IsChecked="{Binding IsSelected, Mode=TwoWay}"/>
+
+                                    <StackPanel Grid.Column="1" Margin="10">
                                         <TextBlock Text="{Binding Name}"
                                                    FontSize="16"
                                                    FontWeight="Bold"/>
@@ -146,16 +179,20 @@
                                         </TextBlock>
                                     </StackPanel>
 
-                                    <StackPanel Grid.Column="1"
+                                    <StackPanel Grid.Column="2"
                                                 Orientation="Horizontal"
                                                 VerticalAlignment="Center"
                                                 Margin="10">
                                         <Button Content="运行"
-                                                Command="{Binding DataContext.CommandListViewModel.ExecuteCommandCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                Command="{Binding DataContext.CommandListViewModel.ExecuteCommandAsyncCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                 CommandParameter="{Binding}"
                                                 Margin="0,0,5,0"/>
                                         <Button Content="管理员运行"
-                                                Command="{Binding DataContext.CommandListViewModel.ExecuteAsAdminCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                Command="{Binding DataContext.CommandListViewModel.ExecuteAsAdminAsyncCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}"
+                                                Margin="0,0,5,0"/>
+                                        <Button Content="移动"
+                                                Command="{Binding DataContext.CommandListViewModel.MoveCommandCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                 CommandParameter="{Binding}"
                                                 Margin="0,0,5,0"/>
                                         <Button Content="删除"

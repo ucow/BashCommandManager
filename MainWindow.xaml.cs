@@ -2,6 +2,7 @@ using BashCommandManager.Core.Services;
 using BashCommandManager.ViewModels;
 using HandyControl.Controls;
 using HandyControl.Data;
+using Microsoft.Extensions.DependencyInjection;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -21,8 +22,8 @@ public partial class MainWindow : HandyControl.Controls.Window
         DataContext = viewModel;
 
         // 从服务提供者获取服务
-        _hotkeyService = ((App)Application.Current).ServiceProvider.GetRequiredService<IGlobalHotkeyService>();
-        _settingsService = ((App)Application.Current).ServiceProvider.GetRequiredService<ISettingsService>();
+        _hotkeyService = App.ServiceProvider.GetRequiredService<IGlobalHotkeyService>();
+        _settingsService = App.ServiceProvider.GetRequiredService<ISettingsService>();
 
         // 订阅快捷键事件
         _hotkeyService.HotkeyPressed += HotkeyService_HotkeyPressed;

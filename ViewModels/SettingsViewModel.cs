@@ -75,7 +75,7 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void Save(Window? window)
+    private void Save(System.Windows.Window? window)
     {
         if (!HotkeySettings.IsValid(HotkeySettings))
         {
@@ -114,7 +114,7 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void Cancel(Window? window)
+    private void Cancel(System.Windows.Window? window)
     {
         window?.Close();
     }

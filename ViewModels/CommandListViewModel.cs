@@ -380,12 +380,42 @@ public partial class CommandListViewModel : ObservableObject
         var excludedIds = new HashSet<int>(currentGroupIds);
         var availableGroups = FlattenGroups(groups).Where(g => !excludedIds.Contains(g.Id));
 
-        // 简化处理：使用消息框选择（实际应该使用对话框）
-        Growl.Info(new GrowlInfo
+        var dialog = new GroupSelectionDialog
         {
-            Message = "批量移动功能需要选择目标分组",
-            WaitTime = 3
-        });
+            DataContext = new GroupSelectionDialogViewModel
+            {
+                Groups = new ObservableCollection<Group>(availableGroups.ToList()),
+                Title = "选择目标分组"
+            }
+        };
+
+        var targetGroup = await Dialog.Show(dialog).GetResultAsync<Group?>();
+
+        if (targetGroup != null)
+        {
+            var commandIds = SelectedCommands.Select(c => c.Id).ToList();
+            await _commandService.MoveCommandsAsync(commandIds, targetGroup.Id);
+
+            // 如果当前正在查看某个分组，需要刷新
+            if (_currentGroupId != 0)
+            {
+                await LoadCommandsAsync(_currentGroupId);
+            }
+            else
+            {
+                await LoadAllCommandsAsync();
+            }
+
+            SelectedCommands.Clear();
+            OnPropertyChanged(nameof(SelectedCount));
+            OnPropertyChanged(nameof(CanBatchOperate));
+
+            Growl.Success(new GrowlInfo
+            {
+                Message = $"成功移动 {commandIds.Count} 个命令到 '{targetGroup.Name}'",
+                WaitTime = 3
+            });
+        }
     }
 
     private IEnumerable<Group> FlattenGroups(IEnumerable<Group> groups)
@@ -432,24 +462,18 @@ public partial class CommandListViewModel : ObservableObject
 
     private async Task<Group?> ShowGroupSelectionDialogAsync(IEnumerable<Group> groups, int excludeGroupId)
     {
-        // 展平分组树为列表
-        var flatGroups = FlattenGroups(groups).Where(g => g.Id != excludeGroupId).ToList();
-
-        // 简化实现：使用输入对话框
-        var dialog = new InputDialogControl
+        var dialog = new GroupSelectionDialog
         {
-            Prompt = $"可用分组：{string.Join(", ", flatGroups.Select(g => g.Name))}\n请输入目标分组名称："
+            DataContext = new GroupSelectionDialogViewModel
+            {
+                Groups = new ObservableCollection<Group>(groups.ToList()),
+                ExcludeGroupId = excludeGroupId,
+                Title = "选择目标分组"
+            }
         };
-        dialog.DataContext = dialog;
 
-        var result = await Dialog.Show(dialog).GetResultAsync<string>();
-
-        if (!string.IsNullOrEmpty(result))
-        {
-            return flatGroups.FirstOrDefault(g => g.Name.Equals(result, StringComparison.OrdinalIgnoreCase));
-        }
-
-        return null;
+        var result = await Dialog.Show(dialog).GetResultAsync<Group?>();
+        return result;
     }
 
     #endregion

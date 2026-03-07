@@ -80,9 +80,11 @@ public partial class App : Application
         services.AddScoped<GroupTreeViewModel>();
         services.AddScoped<CommandListViewModel>();
         services.AddScoped<MainViewModel>();
+        services.AddScoped<SettingsViewModel>();
 
         // Views
         services.AddScoped<MainWindow>();
+        services.AddScoped<Views.SettingsWindow>();
     }
 
     protected override void OnExit(ExitEventArgs e)

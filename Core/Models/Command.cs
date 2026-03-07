@@ -23,4 +23,7 @@ public class Command
 
     // 运行时状态（不持久化）
     public CommandStatus Status { get; set; } = CommandStatus.Idle;
+
+    // 批量选择状态（不持久化）
+    public bool IsSelected { get; set; }
 }

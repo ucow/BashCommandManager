@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HandyControl.Controls;
 using HandyControl.Data;
+using System.Windows;
 
 namespace BashCommandManager.ViewModels;
 
@@ -132,5 +133,15 @@ public partial class MainViewModel : ObservableObject
         var groupName = GroupTreeViewModel.SelectedGroup?.Name ?? "无";
         var count = CommandListViewModel.Commands.Count;
         StatusText = $"当前分组: {groupName} | 命令数: {count}";
+    }
+
+    [RelayCommand]
+    private void OpenSettings()
+    {
+        var settingsWindow = new Views.SettingsWindow
+        {
+            Owner = Application.Current.MainWindow
+        };
+        settingsWindow.ShowDialog();
     }
 }

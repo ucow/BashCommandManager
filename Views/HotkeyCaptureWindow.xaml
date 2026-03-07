@@ -1,0 +1,46 @@
+<Window x:Class="BashCommandManager.Views.HotkeyCaptureWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:hc="https://handyorg.github.io/handycontrol"
+        Title="设置快捷键"
+        Height="250"
+        Width="400"
+        WindowStartupLocation="CenterOwner"
+        KeyDown="Window_KeyDown"
+        KeyUp="Window_KeyUp">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="请按下快捷键组合..."
+                   FontSize="16"
+                   HorizontalAlignment="Center"/>
+
+        <Border Grid.Row="1"
+                Background="{DynamicResource SecondaryRegionBrush}"
+                CornerRadius="4"
+                Margin="0,20">
+            <TextBlock Text="{Binding CapturedHotkeyText}"
+                      FontSize="28"
+                      FontWeight="Bold"
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center"/>
+        </Border>
+
+        <StackPanel Grid.Row="2"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Center">
+            <Button Content="确认"
+                    Click="ConfirmButton_Click"
+                    IsEnabled="{Binding CanConfirm}"
+                    Margin="0,0,10,0"/>
+            <Button Content="取消"
+                    Click="CancelButton_Click"
+                    Style="{StaticResource ButtonDefault}"/>
+        </StackPanel>
+    </Grid>
+</Window>

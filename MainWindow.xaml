@@ -35,19 +35,6 @@
             </hc:ButtonGroup>
             <Separator/>
 
-            <!-- 排序控件 -->
-            <ComboBox Width="120"
-                      ItemsSource="{Binding CommandListViewModel.SortOptions}"
-                      SelectedItem="{Binding CommandListViewModel.CurrentSortOption}"
-                      hc:InfoElement.Placeholder="排序方式"/>
-
-            <ToggleButton Width="30"
-                          IsChecked="{Binding CommandListViewModel.IsDescending}"
-                          Command="{Binding CommandListViewModel.ToggleSortDirectionCommand}"
-                          Content="{Binding CommandListViewModel.SortDirectionIcon}"/>
-
-            <Separator/>
-
             <TextBox x:Name="SearchBox"
                      Width="200"
                      hc:InfoElement.Placeholder="搜索命令..."
@@ -134,8 +121,35 @@
                 </TreeView>
             </Border>
 
-            <ScrollViewer Grid.Column="1" Margin="10">
-                <ItemsControl ItemsSource="{Binding CommandListViewModel.Commands}">
+            <Grid Grid.Column="1" Margin="10">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- 排序控件区域 -->
+                <DockPanel Grid.Row="0" Margin="0,0,0,10">
+                    <TextBlock Text="命令列表" FontSize="16" FontWeight="Bold" DockPanel.Dock="Left" VerticalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" DockPanel.Dock="Right">
+                        <ComboBox Width="120"
+                                  ItemsSource="{Binding CommandListViewModel.SortOptions}"
+                                  SelectedItem="{Binding CommandListViewModel.CurrentSortOption}"
+                                  hc:InfoElement.Placeholder="排序方式">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Converter={StaticResource EnumDisplay}}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <ToggleButton Width="30" Margin="5,0,0,0"
+                                      IsChecked="{Binding CommandListViewModel.IsDescending}"
+                                      Command="{Binding CommandListViewModel.ToggleSortDirectionCommand}"
+                                      Content="{Binding CommandListViewModel.SortDirectionIcon}"/>
+                    </StackPanel>
+                </DockPanel>
+
+                <ScrollViewer Grid.Row="1">
+                    <ItemsControl ItemsSource="{Binding CommandListViewModel.Commands}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <hc:Card Margin="0,5" BorderThickness="1">
@@ -212,6 +226,7 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </ScrollViewer>
+            </Grid>
         </Grid>
 
         <StatusBar Grid.Row="2">

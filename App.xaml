@@ -12,6 +12,7 @@
             <!-- 布尔值到可见性的转换器 -->
             <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
             <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility"/>
+            <converters:EnumDisplayConverter x:Key="EnumDisplay"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

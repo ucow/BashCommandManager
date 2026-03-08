@@ -33,14 +33,23 @@ public partial class GroupTreeViewModel : ObservableObject
     {
         var groups = await _groupService.GetGroupTreeAsync();
 
-        // 插入虚拟"常用命令"节点
-        var allCommandsNode = new Group
+        // 插入虚拟"常用命令"节点 (Id=-1)
+        var frequentlyUsedNode = new Group
         {
-            Id = 0,
+            Id = -1,
             Name = "常用命令",
             IsVirtual = true
         };
-        groups.Insert(0, allCommandsNode);
+        groups.Insert(0, frequentlyUsedNode);
+
+        // 插入虚拟"所有命令"节点 (Id=0)
+        var allCommandsNode = new Group
+        {
+            Id = 0,
+            Name = "所有命令",
+            IsVirtual = true
+        };
+        groups.Insert(1, allCommandsNode);
 
         if (Groups.Count == 0 || !incremental)
         {

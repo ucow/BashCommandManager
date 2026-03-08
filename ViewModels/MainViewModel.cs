@@ -41,7 +41,12 @@ public partial class MainViewModel : ObservableObject
         if (GroupTreeViewModel.SelectedGroup == null)
             return;
 
-        if (GroupTreeViewModel.SelectedGroup.Id == 0 || GroupTreeViewModel.SelectedGroup.IsVirtual)
+        if (GroupTreeViewModel.SelectedGroup.Id == -1)
+        {
+            // 加载常用命令
+            await CommandListViewModel.LoadFrequentlyUsedAsync();
+        }
+        else if (GroupTreeViewModel.SelectedGroup.Id == 0)
         {
             // 加载所有命令
             await CommandListViewModel.LoadAllCommandsAsync();

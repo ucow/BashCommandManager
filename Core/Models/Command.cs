@@ -30,4 +30,7 @@ public partial class Command : ObservableObject
     // 批量选择状态（不持久化）
     [ObservableProperty]
     private bool _isSelected;
+
+    // 分组名称（不持久化，仅运行时显示）
+    public string GroupName { get; set; } = string.Empty;
 }

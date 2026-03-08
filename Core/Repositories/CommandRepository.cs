@@ -146,11 +146,14 @@ public class CommandRepository : ICommandRepository
 
     public async Task<IEnumerable<Command>> GetFrequentlyUsedAsync(int limit = 10)
     {
-        // 获取有执行记录的命令，按执行次数和最近执行时间排序
+        // 获取最近30天有执行记录的命令，按执行次数和最近执行时间排序
         var sql = @"
-            SELECT * FROM Commands
-            WHERE ExecutionCount > 0 OR LastExecutedAt IS NOT NULL
-            ORDER BY ExecutionCount DESC, LastExecutedAt DESC
+            SELECT c.*, g.Name as GroupName
+            FROM Commands c
+            LEFT JOIN Groups g ON c.GroupId = g.Id
+            WHERE c.LastExecutedAt >= datetime('now', '-30 days')
+               OR (c.ExecutionCount > 0 AND c.LastExecutedAt IS NOT NULL)
+            ORDER BY c.ExecutionCount DESC, c.LastExecutedAt DESC
             LIMIT @Limit";
         return await _db.QueryAsync<Command>(sql, new { Limit = limit });
     }

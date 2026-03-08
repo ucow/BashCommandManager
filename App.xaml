@@ -13,6 +13,7 @@
             <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
             <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility"/>
             <converters:EnumDisplayConverter x:Key="EnumDisplay"/>
+            <converters:StringToVisibilityConverter x:Key="StringToVisibility"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

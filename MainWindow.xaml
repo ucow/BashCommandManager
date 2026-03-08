@@ -175,29 +175,37 @@
                                         <TextBlock Text="{Binding Description}"
                                                    Foreground="{DynamicResource SecondaryTextBrush}"
                                                    TextTrimming="CharacterEllipsis"/>
-                                        <TextBlock Text="{Binding FilePath}"
-                                                   FontSize="12"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   Background="Transparent"
-                                                   ToolTip="{Binding FilePath}"
-                                                   Cursor="Hand">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Foreground" Value="{DynamicResource TertiaryTextBrush}"/>
-                                                    <Style.Triggers>
-                                                        <Trigger Property="IsMouseOver" Value="True">
-                                                            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
-                                                        </Trigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                            <hc:Interaction.Triggers>
-                                                <hc:EventTrigger EventName="MouseLeftButtonUp">
-                                                    <hc:EventToCommand Command="{Binding DataContext.CommandListViewModel.OpenDirectoryCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                                       CommandParameter="{Binding}"/>
-                                                </hc:EventTrigger>
-                                            </hc:Interaction.Triggers>
-                                        </TextBlock>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding FilePath}"
+                                                       FontSize="12"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Background="Transparent"
+                                                       ToolTip="{Binding FilePath}"
+                                                       Cursor="Hand">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="{DynamicResource TertiaryTextBrush}"/>
+                                                        <Style.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+                                                            </Trigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                                <hc:Interaction.Triggers>
+                                                    <hc:EventTrigger EventName="MouseLeftButtonUp">
+                                                        <hc:EventToCommand Command="{Binding DataContext.CommandListViewModel.OpenDirectoryCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                           CommandParameter="{Binding}"/>
+                                                    </hc:EventTrigger>
+                                                </hc:Interaction.Triggers>
+                                            </TextBlock>
+                                            <!-- 分组信息标签 -->
+                                            <TextBlock Text="{Binding GroupName, StringFormat=' [{}]'}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource PrimaryBrush}"
+                                                       Margin="5,0,0,0"
+                                                       Visibility="{Binding GroupName, Converter={StaticResource StringToVisibility}}"/>
+                                        </StackPanel>
                                     </StackPanel>
 
                                     <StackPanel Grid.Column="2"

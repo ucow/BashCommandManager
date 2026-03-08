@@ -190,11 +190,11 @@
                                                 VerticalAlignment="Center"
                                                 Margin="10">
                                         <Button Content="运行"
-                                                Command="{Binding DataContext.CommandListViewModel.ExecuteCommandAsyncCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                Command="{Binding DataContext.CommandListViewModel.ExecuteCommandCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                 CommandParameter="{Binding}"
                                                 Margin="0,0,5,0"/>
                                         <Button Content="管理员运行"
-                                                Command="{Binding DataContext.CommandListViewModel.ExecuteAsAdminAsyncCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                Command="{Binding DataContext.CommandListViewModel.ExecuteAsAdminCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                 CommandParameter="{Binding}"
                                                 Margin="0,0,5,0"/>
                                         <Button Content="移动"

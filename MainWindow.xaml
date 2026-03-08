@@ -175,11 +175,17 @@
                                                        FontSize="16"
                                                        FontWeight="Bold"
                                                        VerticalAlignment="Center"/>
-                                            <hc:Tag Content="{Binding GroupName}"
+                                            <Border Background="{DynamicResource PrimaryBrush}"
+                                                    CornerRadius="4"
+                                                    Padding="6,2"
                                                     Margin="8,0,0,0"
-                                                    ShowCloseButton="False"
-                                                    Visibility="{Binding GroupName, Converter={StaticResource StringToVisibility}}"
-                                                    VerticalAlignment="Center"/>
+                                                    VerticalAlignment="Center"
+                                                    Visibility="{Binding GroupName, Converter={StaticResource StringToVisibility}}">
+                                                <TextBlock Text="{Binding GroupName}"
+                                                           Foreground="White"
+                                                           FontSize="11"
+                                                           VerticalAlignment="Center"/>
+                                            </Border>
                                         </StackPanel>
                                         <TextBlock Text="{Binding Description}"
                                                    Foreground="{DynamicResource SecondaryTextBrush}"

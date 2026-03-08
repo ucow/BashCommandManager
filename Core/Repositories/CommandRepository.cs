@@ -148,8 +148,12 @@ public class CommandRepository : ICommandRepository
     public async Task<IEnumerable<Command>> GetFrequentlyUsedAsync(int limit = 10)
     {
         // 获取有执行记录的命令，按执行次数和最近执行时间排序
+        // 明确指定所有列，避免 c.* 和 GroupName 映射冲突
         var sql = @"
-            SELECT c.*, g.Name as GroupName
+            SELECT
+                c.Id, c.Name, c.Description, c.FilePath, c.GroupId, c.SortOrder,
+                c.ExecutionCount, c.LastExecutedAt,
+                g.Name as GroupName
             FROM Commands c
             LEFT JOIN Groups g ON c.GroupId = g.Id
             WHERE c.ExecutionCount > 0 OR c.LastExecutedAt IS NOT NULL

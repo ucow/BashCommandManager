@@ -553,6 +553,9 @@ public partial class CommandListViewModel : ObservableObject
     {
         _currentGroupId = 0;
         _currentSearchKeyword = null;
+        // 常用命令按执行次数降序排列
+        CurrentSortOption = SortOption.ExecutionCount;
+        CurrentSortDirection = SortDirection.Descending;
         var commands = await _commandService.GetFrequentlyUsedAsync(10);
         Commands = new ObservableCollection<Command>(commands);
     }

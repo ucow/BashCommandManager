@@ -148,8 +148,9 @@
                 </DockPanel>
 
                 <ScrollViewer Grid.Row="1">
-                    <ItemsControl ItemsSource="{Binding CommandListViewModel.Commands}">
-                    <ItemsControl.ItemTemplate>
+                    <Grid>
+                        <ItemsControl ItemsSource="{Binding CommandListViewModel.Commands}">
+                            <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <hc:Card Margin="0,5" BorderThickness="1">
                                 <Grid>
@@ -233,7 +234,32 @@
                             </hc:Card>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
+                    <ItemsControl.Style>
+                        <Style TargetType="ItemsControl">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding CommandListViewModel.Commands.Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ItemsControl.Style>
                 </ItemsControl>
+
+                <!-- 空数据提示 -->
+                <hc:Empty Visibility="{Binding CommandListViewModel.Commands.Count, Converter={StaticResource CountToVisibility}}"
+                          Description="暂无命令">
+                    <hc:Empty.Style>
+                        <Style TargetType="hc:Empty">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding GroupTreeViewModel.SelectedGroup.Id}" Value="-1">
+                                    <Setter Property="Description" Value="常用命令会显示您执行过的命令"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </hc:Empty.Style>
+                </hc:Empty>
+                    </Grid>
             </ScrollViewer>
             </Grid>
         </Grid>

@@ -64,7 +64,8 @@ public class CommandRepository : ICommandRepository
         var sql = @"
             UPDATE Commands
             SET Name = @Name, Description = @Description,
-                FilePath = @FilePath, GroupId = @GroupId, SortOrder = @SortOrder
+                FilePath = @FilePath, GroupId = @GroupId, SortOrder = @SortOrder,
+                ExecutionCount = @ExecutionCount, LastExecutedAt = @LastExecutedAt
             WHERE Id = @Id";
         await _db.ExecuteAsync(sql, command);
     }

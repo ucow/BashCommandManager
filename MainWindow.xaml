@@ -141,10 +141,9 @@
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
-                        <ToggleButton Width="30" Margin="5,0,0,0"
-                                      IsChecked="{Binding CommandListViewModel.IsDescending}"
-                                      Command="{Binding CommandListViewModel.ToggleSortDirectionCommand}"
-                                      Content="{Binding CommandListViewModel.SortDirectionIcon}"/>
+                        <Button Width="30" Margin="5,0,0,0"
+                                Command="{Binding CommandListViewModel.ToggleSortDirectionCommand}"
+                                Content="{Binding CommandListViewModel.SortDirectionIcon}"/>
                     </StackPanel>
                 </DockPanel>
 

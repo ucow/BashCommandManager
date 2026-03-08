@@ -1,3 +1,5 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+
 namespace BashCommandManager.Core.Models;
 
 public enum CommandStatus
@@ -8,7 +10,7 @@ public enum CommandStatus
     Failed
 }
 
-public class Command
+public partial class Command : ObservableObject
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
@@ -22,8 +24,10 @@ public class Command
     public DateTime? LastExecutedAt { get; set; }
 
     // 运行时状态（不持久化）
-    public CommandStatus Status { get; set; } = CommandStatus.Idle;
+    [ObservableProperty]
+    private CommandStatus _status = CommandStatus.Idle;
 
     // 批量选择状态（不持久化）
-    public bool IsSelected { get; set; }
+    [ObservableProperty]
+    private bool _isSelected;
 }

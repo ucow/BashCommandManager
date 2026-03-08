@@ -74,8 +74,8 @@
                 <Button Content="批量移动"
                         Command="{Binding CommandListViewModel.BatchMoveCommand}"
                         Margin="0,0,5,0"/>
-                <Button Content="全选"
-                        Command="{Binding CommandListViewModel.SelectAllCommand}"
+                <Button Content="{Binding CommandListViewModel.SelectAllButtonText}"
+                        Command="{Binding CommandListViewModel.ToggleSelectAllCommand}"
                         Margin="0,0,5,0"/>
                 <Button Content="完成"
                         Command="{Binding CommandListViewModel.ExitBatchModeCommand}"/>

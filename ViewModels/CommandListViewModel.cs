@@ -34,6 +34,12 @@ public partial class CommandListViewModel : ObservableObject
     // 批量操作是否可用
     public bool CanBatchOperate => IsBatchMode && SelectedCommands.Count > 0;
 
+    // 是否全部选中
+    public bool IsAllSelected => Commands.Count > 0 && SelectedCommands.Count == Commands.Count;
+
+    // 全选按钮文本
+    public string SelectAllButtonText => IsAllSelected ? "取消全选" : "全选";
+
     // 新增：排序相关属性
     [ObservableProperty]
     private SortOption _currentSortOption = SortOption.Name;
@@ -303,14 +309,18 @@ public partial class CommandListViewModel : ObservableObject
         if (SelectedCommands.Contains(command))
         {
             SelectedCommands.Remove(command);
+            command.IsSelected = false;
         }
         else
         {
             SelectedCommands.Add(command);
+            command.IsSelected = true;
         }
 
         OnPropertyChanged(nameof(SelectedCount));
         OnPropertyChanged(nameof(CanBatchOperate));
+        OnPropertyChanged(nameof(IsAllSelected));
+        OnPropertyChanged(nameof(SelectAllButtonText));
     }
 
     [RelayCommand]
@@ -319,18 +329,57 @@ public partial class CommandListViewModel : ObservableObject
         SelectedCommands.Clear();
         foreach (var command in Commands)
         {
+            command.IsSelected = true;
             SelectedCommands.Add(command);
         }
         OnPropertyChanged(nameof(SelectedCount));
         OnPropertyChanged(nameof(CanBatchOperate));
+        OnPropertyChanged(nameof(IsAllSelected));
+        OnPropertyChanged(nameof(SelectAllButtonText));
     }
 
     [RelayCommand]
     private void ClearSelection()
     {
+        foreach (var command in SelectedCommands)
+        {
+            command.IsSelected = false;
+        }
         SelectedCommands.Clear();
         OnPropertyChanged(nameof(SelectedCount));
         OnPropertyChanged(nameof(CanBatchOperate));
+        OnPropertyChanged(nameof(IsAllSelected));
+        OnPropertyChanged(nameof(SelectAllButtonText));
+    }
+
+    [RelayCommand]
+    private void ToggleSelectAll()
+    {
+        if (IsAllSelected)
+        {
+            // 取消全选
+            foreach (var command in SelectedCommands)
+            {
+                command.IsSelected = false;
+            }
+            SelectedCommands.Clear();
+        }
+        else
+        {
+            // 全选
+            foreach (var command in Commands)
+            {
+                if (!SelectedCommands.Contains(command))
+                {
+                    command.IsSelected = true;
+                    SelectedCommands.Add(command);
+                }
+            }
+        }
+        OnPropertyChanged(nameof(SelectedCount));
+        OnPropertyChanged(nameof(CanBatchOperate));
+        OnPropertyChanged(nameof(IsAllSelected));
+        OnPropertyChanged(nameof(SelectAllButtonText));
     }
 
     [RelayCommand(CanExecute = nameof(CanBatchOperate))]

@@ -170,9 +170,17 @@
                                               CommandParameter="{Binding}"/>
 
                                     <StackPanel Grid.Column="1" Margin="10">
-                                        <TextBlock Text="{Binding Name}"
-                                                   FontSize="16"
-                                                   FontWeight="Bold"/>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}"
+                                                       FontSize="16"
+                                                       FontWeight="Bold"
+                                                       VerticalAlignment="Center"/>
+                                            <hc:Tag Content="{Binding GroupName}"
+                                                    Margin="8,0,0,0"
+                                                    ShowCloseButton="False"
+                                                    Visibility="{Binding GroupName, Converter={StaticResource StringToVisibility}}"
+                                                    VerticalAlignment="Center"/>
+                                        </StackPanel>
                                         <TextBlock Text="{Binding Description}"
                                                    Foreground="{DynamicResource SecondaryTextBrush}"
                                                    TextTrimming="CharacterEllipsis"/>
@@ -200,12 +208,6 @@
                                                     </hc:EventTrigger>
                                                 </hc:Interaction.Triggers>
                                             </TextBlock>
-                                            <!-- 分组信息标签 -->
-                                            <TextBlock Text="{Binding GroupName, StringFormat=' [{}]'}"
-                                                       FontSize="12"
-                                                       Foreground="{DynamicResource PrimaryBrush}"
-                                                       Margin="5,0,0,0"
-                                                       Visibility="{Binding GroupName, Converter={StaticResource StringToVisibility}}"/>
                                         </StackPanel>
                                     </StackPanel>
 

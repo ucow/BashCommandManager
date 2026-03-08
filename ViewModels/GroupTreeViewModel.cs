@@ -42,15 +42,6 @@ public partial class GroupTreeViewModel : ObservableObject
         };
         groups.Insert(0, frequentlyUsedNode);
 
-        // 插入虚拟"所有命令"节点 (Id=0)
-        var allCommandsNode = new Group
-        {
-            Id = 0,
-            Name = "所有命令",
-            IsVirtual = true
-        };
-        groups.Insert(1, allCommandsNode);
-
         if (Groups.Count == 0 || !incremental)
         {
             // 首次加载或非增量刷新：重建整个集合
@@ -62,10 +53,10 @@ public partial class GroupTreeViewModel : ObservableObject
             SyncGroupTree(Groups, groups);
         }
 
-        // 首次加载时自动选中"常用命令"节点
+        // 首次加载时自动选中"常用命令"节点 (Id=-1)
         if (SelectedGroup == null && Groups.Count > 0)
         {
-            SelectedGroup = Groups.FirstOrDefault(g => g.IsVirtual);
+            SelectedGroup = Groups.FirstOrDefault(g => g.Id == -1);
         }
     }
 

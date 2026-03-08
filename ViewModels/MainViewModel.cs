@@ -46,11 +46,6 @@ public partial class MainViewModel : ObservableObject
             // 加载常用命令
             await CommandListViewModel.LoadFrequentlyUsedAsync();
         }
-        else if (GroupTreeViewModel.SelectedGroup.Id == 0)
-        {
-            // 加载所有命令
-            await CommandListViewModel.LoadAllCommandsAsync();
-        }
         else
         {
             // 加载特定分组命令
@@ -66,9 +61,9 @@ public partial class MainViewModel : ObservableObject
         {
             if (GroupTreeViewModel.SelectedGroup != null)
             {
-                if (GroupTreeViewModel.SelectedGroup.Id == 0 || GroupTreeViewModel.SelectedGroup.IsVirtual)
+                if (GroupTreeViewModel.SelectedGroup.Id == -1)
                 {
-                    await CommandListViewModel.LoadAllCommandsAsync();
+                    await CommandListViewModel.LoadFrequentlyUsedAsync();
                 }
                 else
                 {

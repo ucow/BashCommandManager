@@ -290,6 +290,8 @@ public partial class CommandListViewModel : ObservableObject
         SelectedCommands.Clear();
         OnPropertyChanged(nameof(SelectedCount));
         OnPropertyChanged(nameof(CanBatchOperate));
+        BatchDeleteCommand.NotifyCanExecuteChanged();
+        BatchMoveCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand]
@@ -299,6 +301,15 @@ public partial class CommandListViewModel : ObservableObject
         SelectedCommands.Clear();
         OnPropertyChanged(nameof(SelectedCount));
         OnPropertyChanged(nameof(CanBatchOperate));
+        BatchDeleteCommand.NotifyCanExecuteChanged();
+        BatchMoveCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnIsBatchModeChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanBatchOperate));
+        BatchDeleteCommand.NotifyCanExecuteChanged();
+        BatchMoveCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand]
@@ -321,6 +332,8 @@ public partial class CommandListViewModel : ObservableObject
         OnPropertyChanged(nameof(CanBatchOperate));
         OnPropertyChanged(nameof(IsAllSelected));
         OnPropertyChanged(nameof(SelectAllButtonText));
+        BatchDeleteCommand.NotifyCanExecuteChanged();
+        BatchMoveCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand]
@@ -336,6 +349,8 @@ public partial class CommandListViewModel : ObservableObject
         OnPropertyChanged(nameof(CanBatchOperate));
         OnPropertyChanged(nameof(IsAllSelected));
         OnPropertyChanged(nameof(SelectAllButtonText));
+        BatchDeleteCommand.NotifyCanExecuteChanged();
+        BatchMoveCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand]
@@ -350,6 +365,8 @@ public partial class CommandListViewModel : ObservableObject
         OnPropertyChanged(nameof(CanBatchOperate));
         OnPropertyChanged(nameof(IsAllSelected));
         OnPropertyChanged(nameof(SelectAllButtonText));
+        BatchDeleteCommand.NotifyCanExecuteChanged();
+        BatchMoveCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand]
@@ -380,6 +397,8 @@ public partial class CommandListViewModel : ObservableObject
         OnPropertyChanged(nameof(CanBatchOperate));
         OnPropertyChanged(nameof(IsAllSelected));
         OnPropertyChanged(nameof(SelectAllButtonText));
+        BatchDeleteCommand.NotifyCanExecuteChanged();
+        BatchMoveCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand(CanExecute = nameof(CanBatchOperate))]

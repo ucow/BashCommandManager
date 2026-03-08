@@ -164,7 +164,9 @@
                                               Margin="10,0"
                                               VerticalAlignment="Center"
                                               Visibility="{Binding DataContext.CommandListViewModel.IsBatchMode, RelativeSource={RelativeSource AncestorType=ItemsControl}, Converter={StaticResource BoolToVisibility}}"
-                                              IsChecked="{Binding IsSelected, Mode=TwoWay}"/>
+                                              IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                              Command="{Binding DataContext.CommandListViewModel.ToggleCommandSelectionCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                              CommandParameter="{Binding}"/>
 
                                     <StackPanel Grid.Column="1" Margin="10">
                                         <TextBlock Text="{Binding Name}"

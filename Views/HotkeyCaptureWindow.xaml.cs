@@ -1,3 +1,4 @@
+using BashCommandManager.Core.Services;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows;
@@ -35,17 +36,20 @@ public partial class HotkeyCaptureWindow : Window, INotifyPropertyChanged
     {
         e.Handled = true;
 
-        // 忽略单独的修饰键
-        if (e.Key == Key.LeftShift || e.Key == Key.RightShift ||
-            e.Key == Key.LeftCtrl || e.Key == Key.RightCtrl ||
-            e.Key == Key.LeftAlt || e.Key == Key.RightAlt ||
-            e.Key == Key.LWin || e.Key == Key.RWin)
+        // Alt 组合下 e.Key 是 Key.System，真实键在 e.SystemKey：先归一化再判断与保存。
+        var key = HotkeyKeyNormalizer.Normalize(e.Key, e.SystemKey);
+
+        // 忽略单独的修饰键（Alt 组合里 e.SystemKey 才是 Key.LeftAlt/Key.RightAlt）
+        if (key == Key.LeftShift || key == Key.RightShift ||
+            key == Key.LeftCtrl || key == Key.RightCtrl ||
+            key == Key.LeftAlt || key == Key.RightAlt ||
+            key == Key.LWin || key == Key.RWin)
         {
             UpdateDisplayText();
             return;
         }
 
-        _capturedKey = e.Key;
+        _capturedKey = key;
         _capturedModifiers = Keyboard.Modifiers;
 
         UpdateDisplayText();

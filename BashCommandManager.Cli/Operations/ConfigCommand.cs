@@ -56,6 +56,32 @@ public static class ConfigCommand
         return Task.FromResult(new CliResult(data, null, RenderHuman(data)));
     }
 
+    public static Task<CliResult> SetAsync(ParsedCommand command, CliServices services)
+    {
+        var key = command.Arguments[0];
+        var value = command.Arguments[1];
+
+        switch (key)
+        {
+            case "hotkey":
+            {
+                var spec = HotkeySpec.Parse(value);
+                var current = services.Settings.GetHotkey();
+                var updated = new HotkeyConfig(current.Enabled, spec.Key, spec.Modifiers);
+                services.Settings.SetHotkey(updated);
+                return Task.FromResult(HotkeyResult(updated));
+            }
+            case "hotkey.enabled":
+            {
+                var enabled = bool.Parse(value);
+                services.Settings.SetHotkeyEnabled(enabled);
+                return Task.FromResult(HotkeyResult(services.Settings.GetHotkey()));
+            }
+            default:
+                throw CliErrors.ConfigKey($"未知配置键: {key}", "可用键: hotkey,hotkey.enabled");
+        }
+    }
+
     public static string SourceName(DatabasePathSource source) => source switch
     {
         DatabasePathSource.Argument => "argument",
@@ -63,6 +89,21 @@ public static class ConfigCommand
         DatabasePathSource.LegacyApplicationDirectory => "legacy",
         _ => "localAppData"
     };
+
+    private static CliResult HotkeyResult(HotkeyConfig hotkey)
+    {
+        var spec = HotkeySpec.Create(hotkey.Key, hotkey.Modifiers);
+        var node = new JsonObject
+        {
+            ["enabled"] = hotkey.Enabled,
+            ["key"] = hotkey.Key,
+            ["keyName"] = spec.KeyName,
+            ["modifiers"] = hotkey.Modifiers,
+            ["display"] = spec.Display
+        };
+        return new CliResult(new JsonObject { ["hotkey"] = node }, null,
+            $"hotkey: {spec.Display}{Environment.NewLine}enabled: {hotkey.Enabled}");
+    }
 
     private static string RenderHuman(JsonNode data)
     {

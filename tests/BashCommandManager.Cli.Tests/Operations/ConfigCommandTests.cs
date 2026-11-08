@@ -1,6 +1,7 @@
 using BashCommandManager.Cli;
 using BashCommandManager.Cli.Application;
 using BashCommandManager.Cli.CommandLine;
+using BashCommandManager.Cli.Infrastructure;
 using BashCommandManager.Cli.Operations;
 using BashCommandManager.Cli.Tests.TestSupport;
 using BashCommandManager.Infrastructure;
@@ -80,6 +81,69 @@ public class ConfigCommandTests
         var result = await ConfigCommand.GetAsync(Parse("config", "get", "gui.path"), services);
 
         Assert.Null(result.Data!["gui"]!["path"]);
+    }
+
+    [Fact]
+    public async Task Set_hotkey_writes_key_and_modifiers()
+    {
+        var settings = new FakeSettingsStore(new HotkeyConfig(true, 45, 3));
+        using var services = Services(settings);
+
+        var result = await ConfigCommand.SetAsync(Parse("config", "set", "hotkey", "Ctrl+Shift+N"), services);
+
+        Assert.Equal(57, settings.Hotkey.Key);
+        Assert.Equal(6, settings.Hotkey.Modifiers);
+        Assert.True(settings.Hotkey.Enabled);
+        Assert.Equal("Ctrl+Shift+N", result.Data!["hotkey"]!["display"]!.GetValue<string>());
+        Assert.Equal(57, result.Data!["hotkey"]!["key"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public async Task Set_hotkey_preserves_disabled_state()
+    {
+        var settings = new FakeSettingsStore(new HotkeyConfig(false, 45, 3));
+        using var services = Services(settings);
+
+        await ConfigCommand.SetAsync(Parse("config", "set", "hotkey", "Ctrl+Alt+B"), services);
+
+        Assert.False(settings.Hotkey.Enabled);
+        Assert.Equal(45, settings.Hotkey.Key);
+        Assert.Equal(3, settings.Hotkey.Modifiers);
+    }
+
+    [Fact]
+    public async Task Set_hotkey_enabled_toggles_only_flag()
+    {
+        var settings = new FakeSettingsStore(new HotkeyConfig(true, 57, 6));
+        using var services = Services(settings);
+
+        var result = await ConfigCommand.SetAsync(Parse("config", "set", "hotkey.enabled", "false"), services);
+
+        Assert.False(settings.Hotkey.Enabled);
+        Assert.Equal(57, settings.Hotkey.Key);
+        Assert.False(result.Data!["hotkey"]!["enabled"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public async Task Set_hotkey_rejects_missing_modifier()
+    {
+        var settings = new FakeSettingsStore();
+        using var services = Services(settings);
+
+        var error = await Assert.ThrowsAsync<CliFailureException>(() =>
+            ConfigCommand.SetAsync(Parse("config", "set", "hotkey", "N"), services));
+
+        Assert.Equal("E_INVALID_VALUE", error.Error.Code);
+    }
+
+    [Fact]
+    public void Set_unknown_key_is_config_key_error()
+    {
+        using var services = Services(new FakeSettingsStore());
+
+        var error = Assert.Throws<CliFailureException>(() => Parse("config", "set", "execution.terminal", "1"));
+
+        Assert.Equal("E_CONFIG_KEY", error.Error.Code);
     }
 
     [Theory]

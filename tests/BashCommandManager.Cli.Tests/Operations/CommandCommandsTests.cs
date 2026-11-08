@@ -217,4 +217,110 @@ public class CommandCommandsTests
 
         Assert.Equal(ops, result.Data!["groupId"]!.GetValue<int>());
     }
+
+    [Fact]
+    public async Task Edit_updates_only_given_fields()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        var script = arranged.Temp.CreateScript("backup.cmd");
+        var id = await arranged.Store.CreateCommandAsync(new Command { Name = "备份", Description = "旧", FilePath = script, GroupId = 1 });
+        using var services = CliServicesFactory.Create(arranged.Session);
+
+        var result = await CommandCommands.EditAsync(
+            Parse("commands", "edit", id.ToString(), "--description", "每日 2:00"),
+            services, arranged.Store, arranged.Resolver);
+
+        var stored = await arranged.Store.GetCommandAsync(id);
+        Assert.Equal("每日 2:00", stored!.Description);
+        Assert.Equal("备份", stored.Name);
+        Assert.Equal(script, stored.FilePath);
+        Assert.Equal(1, stored.GroupId); // 未给 --group 时不改分组（--group 是目标分组，不是查找范围，见 VD-13）
+        Assert.Equal("每日 2:00", result.Data!["description"]!.GetValue<string>());
+        Assert.True(result.Data!["fileExists"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public async Task Edit_can_move_to_another_group_and_rename()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        var ops = await arranged.Store.CreateGroupAsync("运维", 1);
+        var script = arranged.Temp.CreateScript("backup.cmd");
+        var id = await arranged.Store.CreateCommandAsync(new Command { Name = "备份", FilePath = script, GroupId = 1 });
+        using var services = CliServicesFactory.Create(arranged.Session);
+
+        var result = await CommandCommands.EditAsync(
+            Parse("commands", "edit", id.ToString(), "--name", "每日备份", "--group", "运维"),
+            services, arranged.Store, arranged.Resolver);
+
+        Assert.Equal("每日备份", result.Data!["name"]!.GetValue<string>());
+        Assert.Equal(ops, result.Data!["groupId"]!.GetValue<int>());
+        Assert.Equal(ops, (await arranged.Store.GetCommandAsync(id))!.GroupId);
+    }
+
+    [Fact]
+    public async Task Edit_validates_new_file_exists()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        var script = arranged.Temp.CreateScript("backup.cmd");
+        var id = await arranged.Store.CreateCommandAsync(new Command { Name = "备份", FilePath = script, GroupId = 1 });
+        using var services = CliServicesFactory.Create(arranged.Session);
+
+        var error = await Assert.ThrowsAsync<CliFailureException>(() =>
+            CommandCommands.EditAsync(Parse("commands", "edit", id.ToString(), "--file", @"Z:\missing\x.cmd"), services, arranged.Store, arranged.Resolver));
+
+        Assert.Equal("E_FILE_NOT_FOUND", error.Error.Code);
+        Assert.Equal(1, error.Error.ExitCode);
+    }
+
+    [Fact]
+    public async Task Edit_blank_name_is_invalid()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        var script = arranged.Temp.CreateScript("backup.cmd");
+        var id = await arranged.Store.CreateCommandAsync(new Command { Name = "备份", FilePath = script, GroupId = 1 });
+        using var services = CliServicesFactory.Create(arranged.Session);
+
+        var error = await Assert.ThrowsAsync<CliFailureException>(() =>
+            CommandCommands.EditAsync(Parse("commands", "edit", id.ToString(), "--name", "  "), services, arranged.Store, arranged.Resolver));
+
+        Assert.Equal("E_INVALID_VALUE", error.Error.Code);
+    }
+
+    [Fact]
+    public async Task Delete_removes_multiple_commands_by_id_list()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        var first = await arranged.Store.CreateCommandAsync(new Command { Name = "a", FilePath = @"D:\a.bat", GroupId = 1 });
+        var second = await arranged.Store.CreateCommandAsync(new Command { Name = "b", FilePath = @"D:\b.bat", GroupId = 1 });
+
+        var result = await CommandCommands.DeleteAsync(Parse("commands", "delete", $"{first},{second}", "--force"), arranged.Store, arranged.Resolver);
+
+        var deleted = result.Data!["deleted"]!.AsArray().Select(node => node!.GetValue<int>()).ToArray();
+        Assert.Equal(new[] { first, second }, deleted);
+        Assert.Null(await arranged.Store.GetCommandAsync(first));
+        Assert.Null(await arranged.Store.GetCommandAsync(second));
+    }
+
+    [Fact]
+    public async Task Delete_by_name_resolves_uniquely()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        var id = await arranged.Store.CreateCommandAsync(new Command { Name = "备份", FilePath = @"D:\a.bat", GroupId = 1 });
+
+        var result = await CommandCommands.DeleteAsync(Parse("commands", "delete", "备份", "--force"), arranged.Store, arranged.Resolver);
+
+        Assert.Equal(id, result.Data!["deleted"]!.AsArray()[0]!.GetValue<int>());
+    }
 }

@@ -97,6 +97,62 @@ public static class CommandCommands
         return CliResult.Object(data, $"id: {id}{Environment.NewLine}name: {entity.Name}{Environment.NewLine}filePath: {entity.FilePath}");
     }
 
+    public static async Task<CliResult> EditAsync(ParsedCommand command, CliServices services, CliCommandStore store, CommandResolver resolver)
+    {
+        // --group 语义（VD-13）：edit 的 --group 是“移动到该分组”，不是查找范围；
+        // 所以这里不传 groupToken（<id|name> 按全局名称解析），--group 只在下面按“目标分组”处理。
+        var entity = await resolver.ResolveCommandAsync(command.Arguments[0], groupToken: null);
+
+        if (command.HasValue("name"))
+        {
+            var name = command.GetValue("name")!.Trim();
+            if (name.Length == 0)
+            {
+                throw CliErrors.InvalidValue("命令名称不能为空");
+            }
+            entity.Name = name;
+        }
+
+        if (command.HasValue("description"))
+        {
+            entity.Description = command.GetValue("description")!;
+        }
+
+        if (command.HasValue("file"))
+        {
+            var filePath = command.GetValue("file")!.Trim();
+            if (!services.FileExists(filePath))
+            {
+                throw CliErrors.FileNotFound($"文件不存在: {filePath}");
+            }
+            entity.FilePath = Path.GetFullPath(filePath);
+        }
+
+        if (command.GetValue("group") is string groupToken)
+        {
+            entity.GroupId = (await resolver.ResolveGroupAsync(groupToken)).Id;
+        }
+
+        await store.UpdateCommandAsync(entity);
+
+        var group = await store.GetGroupAsync(entity.GroupId);
+        var data = JsonShapes.Command(entity, group?.Name, includeFileExists: true, services.FileExists);
+        return CliResult.Object(data);
+    }
+
+    public static async Task<CliResult> DeleteAsync(ParsedCommand command, CliCommandStore store, CommandResolver resolver)
+    {
+        var entities = await resolver.ResolveCommandsAsync(command.Arguments[0], command.GetValue("group"));
+        var ids = entities.Select(entity => entity.Id).ToArray();
+        await store.DeleteCommandsAsync(ids);
+
+        var data = new JsonObject
+        {
+            ["deleted"] = new JsonArray(ids.Select(id => (JsonNode)JsonValue.Create(id)).ToArray())
+        };
+        return CliResult.Object(data, $"deleted: {string.Join(",", ids)}");
+    }
+
     internal static (SortOption Sort, SortDirection Direction) ParseSort(ParsedCommand command)
     {
         var sort = (command.GetValue("sort") ?? "name").ToLowerInvariant() switch

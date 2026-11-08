@@ -28,6 +28,19 @@ public class HotkeySettings
         return $"{modifierString}+{Key}";
     }
 
+    /// <summary>
+    /// 复制一份独立的设置对象，供设置页编辑，避免改动服务内的当前配置。
+    /// </summary>
+    public HotkeySettings Clone()
+    {
+        return new HotkeySettings
+        {
+            Enabled = Enabled,
+            Key = Key,
+            Modifiers = Modifiers
+        };
+    }
+
     public static bool IsValid(HotkeySettings settings)
     {
         // 至少需要有一个修饰键

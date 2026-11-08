@@ -139,6 +139,13 @@ SQLite 数据库存储在应用目录 `data/app.db`：
 - 关闭按钮默认最小化到托盘
 - 真正退出需通过托盘菜单"退出"
 
+### 全局快捷键
+
+- 热键宿主是进程级的 message-only 窗口（`Core/Services/HotkeyMessageWindow.cs`，`HwndSource` + `Parent=HWND_MESSAGE`），与主窗口 `Show/Hide` 无关
+- 注册在 `App.OnStartup`，生命周期的注销只在 `App.OnExit`；`MainWindow` 不再持有 `IGlobalHotkeyService`
+- 「快照 → 决策 → 执行」是可单测的纯逻辑：`WindowTogglePolicy`、`HotkeyToggleCoordinator`；Win32 只在 `HotkeyNativeMethods` 与 `ForegroundWindowActivator` 两个薄层
+- 点 X 隐藏到托盘走 `MainWindow.OnClosing`（`e.Cancel = true`），不会注销热键
+
 ## 开发计划
 
 设计文档保存在 `docs/plans/`，命名格式：`YYYY-MM-DD-<feature>-design.md`

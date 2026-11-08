@@ -1,3 +1,4 @@
+using BashCommandManager.Infrastructure;
 using System.Diagnostics;
 
 namespace BashCommandManager.Cli.Infrastructure;
@@ -19,7 +20,7 @@ public interface IGuiLauncher
 {
     string? ResolveGuiPath(string? explicitPath);
 
-    int Launch(string guiPath, int? commandId);
+    int Launch(string guiPath, int? commandId, string? databasePath = null);
 }
 
 /// <summary>查找顺序：--gui &gt; BASHCOMMANDMANAGER_GUI &gt; {cliDir}\..\BashCommandManager.exe &gt; {cliDir}\BashCommandManager.exe。</summary>
@@ -68,7 +69,7 @@ public sealed class GuiLauncher : IGuiLauncher
         return _fileExists(sibling) ? sibling : null;
     }
 
-    public int Launch(string guiPath, int? commandId)
+    public int Launch(string guiPath, int? commandId, string? databasePath = null)
     {
         var startInfo = new ProcessStartInfo
         {
@@ -76,6 +77,13 @@ public sealed class GuiLauncher : IGuiLauncher
             Arguments = commandId is int id ? $"--command {id}" : string.Empty,
             UseShellExecute = true
         };
+
+        // I-3：把 CLI 校验/解析出的库传给 GUI，避免 GUI 按自己的默认库打开导致"定位成功但看不到命令"。
+        // GUI 不读取 BASHCOMMANDMANAGER_SETTINGS_DIR，所以只在 --db / BASHCOMMANDMANAGER_DB 命中时显式传递。
+        if (!string.IsNullOrWhiteSpace(databasePath))
+        {
+            startInfo.Environment[DatabasePathResolver.EnvironmentVariableName] = databasePath;
+        }
 
         var process = _processStarter.Start(startInfo);
         return process?.Id ?? 0;

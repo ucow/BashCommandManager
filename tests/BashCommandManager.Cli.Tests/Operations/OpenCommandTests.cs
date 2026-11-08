@@ -13,9 +13,12 @@ public class OpenCommandTests
 {
     private static ParsedCommand Parse(params string[] args) => CommandLineParser.Parse(args, _ => false);
 
-    private static CliServices Services(FakeGuiLauncher launcher, string databasePath = @"C:\db\app.db")
+    private static CliServices Services(
+        FakeGuiLauncher launcher,
+        string databasePath = @"C:\db\app.db",
+        DatabasePathSource source = DatabasePathSource.LocalAppData)
         => new(
-            new DatabasePathResolution(databasePath, DatabasePathSource.LocalAppData, null, false),
+            new DatabasePathResolution(databasePath, source, null, false),
             session: null,
             new FakeSettingsStore(),
             new FakeProcessRunner(),
@@ -126,5 +129,38 @@ public class OpenCommandTests
 
         Assert.Equal("E_GUI_NOT_FOUND", error.Error.Code);
         Assert.Contains(@"D:\missing\BashCommandManager.exe", error.Error.Message);
+    }
+
+    // I-3：open --db 校验的库必须透传给 GUI（BASHCOMMANDMANAGER_DB），否则会出现假成功。
+    [Fact]
+    public async Task Open_passes_explicit_database_path_to_gui()
+    {
+        using var temp = new TempDatabase();
+        int id;
+        using (var session = new DatabaseSession(temp.DatabasePath))
+        {
+            var store = new CliCommandStore(session.Connection);
+            id = await store.CreateCommandAsync(new Command { Name = "备份", FilePath = @"D:\a.bat", GroupId = 1 });
+        }
+        var launcher = new FakeGuiLauncher();
+        using var services = Services(launcher, temp.DatabasePath, DatabasePathSource.Argument);
+
+        await OpenCommand.ExecuteAsync(
+            Parse("open", "--command", id.ToString(), "--db", temp.DatabasePath), services);
+
+        Assert.Equal(temp.DatabasePath, Assert.Single(launcher.Launches).DatabasePath);
+    }
+
+    [Fact]
+    public async Task Open_without_explicit_database_does_not_override_gui_database()
+    {
+        using var temp = new TempDatabase();
+        using var session = new DatabaseSession(temp.DatabasePath);
+        var launcher = new FakeGuiLauncher();
+        using var services = Services(launcher, temp.DatabasePath);
+
+        await OpenCommand.ExecuteAsync(Parse("open"), services);
+
+        Assert.Null(Assert.Single(launcher.Launches).DatabasePath);
     }
 }

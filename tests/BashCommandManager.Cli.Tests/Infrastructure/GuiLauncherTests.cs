@@ -1,5 +1,6 @@
 using BashCommandManager.Cli.Infrastructure;
 using BashCommandManager.Cli.Tests.TestSupport;
+using BashCommandManager.Infrastructure;
 
 namespace BashCommandManager.Cli.Tests.Infrastructure;
 
@@ -84,5 +85,33 @@ public class GuiLauncherTests
         launcher.Launch(@"C:\Apps\BashCommandManager.exe", null);
 
         Assert.Equal(string.Empty, Assert.Single(starter.StartInfos).Arguments);
+    }
+
+    // I-3：open --db 校验的库必须传给 GUI，否则 GUI 打开默认库会出现"定位成功但看不到命令"。
+    [Fact]
+    public void Launch_sets_database_environment_variable_when_path_given()
+    {
+        var starter = new FakeGuiProcessStarter();
+        var launcher = new GuiLauncher(cliDirectory: CliDir, fileExists: _ => true, processStarter: starter);
+
+        launcher.Launch(@"C:\Apps\BashCommandManager.exe", 7, @"D:\portable\data\app.db");
+
+        var startInfo = Assert.Single(starter.StartInfos);
+        Assert.Equal(@"D:\portable\data\app.db",
+            startInfo.Environment[DatabasePathResolver.EnvironmentVariableName]);
+        Assert.Equal("--command 7", startInfo.Arguments);
+        Assert.True(startInfo.UseShellExecute);
+    }
+
+    [Fact]
+    public void Launch_without_database_path_does_not_set_environment()
+    {
+        var starter = new FakeGuiProcessStarter();
+        var launcher = new GuiLauncher(cliDirectory: CliDir, fileExists: _ => true, processStarter: starter);
+
+        launcher.Launch(@"C:\Apps\BashCommandManager.exe", 7);
+
+        Assert.False(Assert.Single(starter.StartInfos).Environment
+            .ContainsKey(DatabasePathResolver.EnvironmentVariableName));
     }
 }

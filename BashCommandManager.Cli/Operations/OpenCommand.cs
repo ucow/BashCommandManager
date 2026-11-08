@@ -1,6 +1,7 @@
 using BashCommandManager.Cli.CommandLine;
 using BashCommandManager.Cli.Infrastructure;
 using BashCommandManager.Cli.Output;
+using BashCommandManager.Infrastructure;
 using System.Data.SQLite;
 using System.Globalization;
 using System.Text.Json.Nodes;
@@ -34,7 +35,13 @@ public static class OpenCommand
                 : CliErrors.GuiNotFound($"指定的 GUI 不存在: {explicitGui}", "核对 --gui 路径");
         }
 
-        var processId = services.Launcher.Launch(guiPath, commandId);
+        // I-3：把当前会话实际解析出的库（--db 或 BASHCOMMANDMANAGER_DB 命中）传给 GUI。
+        // 未显式指定时返回 null，交回 GUI 自己的默认解析（GUI 不读 SETTINGS_DIR）。
+        var databasePath = services.DatabaseResolution.Source
+            is DatabasePathSource.Argument or DatabasePathSource.Environment
+            ? services.DatabaseResolution.DatabasePath
+            : null;
+        var processId = services.Launcher.Launch(guiPath, commandId, databasePath);
 
         var data = new JsonObject
         {

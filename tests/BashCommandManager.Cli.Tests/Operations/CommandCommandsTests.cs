@@ -132,4 +132,89 @@ public class CommandCommandsTests
         Assert.IsType<JsonArray>(result.Data);
         Assert.Equal("备份", result.Data![0]!["name"]!.GetValue<string>());
     }
+
+    [Fact]
+    public async Task Show_returns_file_exists_flag()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        var script = arranged.Temp.CreateScript("backup.cmd");
+        var id = await arranged.Store.CreateCommandAsync(new Command { Name = "备份", FilePath = script, GroupId = 1 });
+        using var services = CliServicesFactory.Create(arranged.Session);
+
+        var result = await CommandCommands.ShowAsync(Parse("commands", "show", id.ToString()), services, arranged.Store, arranged.Resolver);
+
+        var data = result.Data!.AsObject();
+        Assert.True(data["fileExists"]!.GetValue<bool>());
+        Assert.Equal("备份", data["name"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Show_missing_command_is_not_found()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        using var services = CliServicesFactory.Create(arranged.Session);
+
+        var error = await Assert.ThrowsAsync<CliFailureException>(() =>
+            CommandCommands.ShowAsync(Parse("commands", "show", "999"), services, arranged.Store, arranged.Resolver));
+
+        Assert.Equal("E_NOT_FOUND", error.Error.Code);
+        Assert.Equal(2, error.Error.ExitCode);
+    }
+
+    [Fact]
+    public async Task Add_creates_command_with_sort_order()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        var script = arranged.Temp.CreateScript("backup.cmd");
+        using var services = CliServicesFactory.Create(arranged.Session);
+
+        var result = await CommandCommands.AddAsync(
+            Parse("commands", "add", "--name", "备份", "--file", script, "--description", "每日"),
+            services, arranged.Store, arranged.Resolver);
+
+        var data = result.Data!.AsObject();
+        Assert.Equal("备份", data["name"]!.GetValue<string>());
+        Assert.Equal(script, data["filePath"]!.GetValue<string>());
+        Assert.Equal(1, data["groupId"]!.GetValue<int>());
+        var stored = await arranged.Store.GetCommandAsync(data["id"]!.GetValue<int>());
+        Assert.Equal("每日", stored!.Description);
+    }
+
+    [Fact]
+    public async Task Add_requires_existing_file()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        using var services = CliServicesFactory.Create(arranged.Session);
+
+        var error = await Assert.ThrowsAsync<CliFailureException>(() =>
+            CommandCommands.AddAsync(Parse("commands", "add", "--name", "x", "--file", @"Z:\missing\x.cmd"), services, arranged.Store, arranged.Resolver));
+
+        Assert.Equal("E_FILE_NOT_FOUND", error.Error.Code);
+        Assert.Equal(1, error.Error.ExitCode);
+    }
+
+    [Fact]
+    public async Task Add_resolves_group_path_and_returns_group_id()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        var ops = await arranged.Store.CreateGroupAsync("运维", 1);
+        var script = arranged.Temp.CreateScript("backup.cmd");
+        using var services = CliServicesFactory.Create(arranged.Session);
+
+        var result = await CommandCommands.AddAsync(
+            Parse("commands", "add", "--name", "备份", "--file", script, "--group", "运维"),
+            services, arranged.Store, arranged.Resolver);
+
+        Assert.Equal(ops, result.Data!["groupId"]!.GetValue<int>());
+    }
 }

@@ -201,6 +201,82 @@ public class CommandCommandsTests
         Assert.Equal(1, error.Error.ExitCode);
     }
 
+    // I-7：add/edit 只接受 .bat/.cmd（与 import/SKILL 的硬性约束一致）。
+    [Fact]
+    public async Task Add_rejects_non_batch_file()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        var exe = arranged.Temp.CreateScript("tool.exe", "MZ");
+        using var services = CliServicesFactory.Create(arranged.Session);
+
+        var error = await Assert.ThrowsAsync<CliFailureException>(() =>
+            CommandCommands.AddAsync(Parse("commands", "add", "--name", "x", "--file", exe), services, arranged.Store, arranged.Resolver));
+
+        Assert.Equal("E_INVALID_VALUE", error.Error.Code);
+        Assert.Equal(1, error.Error.ExitCode);
+        Assert.Contains(".bat/.cmd", error.Error.Hint);
+        Assert.Empty(await arranged.Store.GetAllCommandsAsync());
+    }
+
+    [Fact]
+    public async Task Edit_rejects_non_batch_file()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        var script = arranged.Temp.CreateScript("backup.cmd");
+        var id = await arranged.Store.CreateCommandAsync(new Command { Name = "备份", FilePath = script, GroupId = 1 });
+        var exe = arranged.Temp.CreateScript("tool.EXE", "MZ");
+        using var services = CliServicesFactory.Create(arranged.Session);
+
+        var error = await Assert.ThrowsAsync<CliFailureException>(() =>
+            CommandCommands.EditAsync(Parse("commands", "edit", id.ToString(), "--file", exe), services, arranged.Store, arranged.Resolver));
+
+        Assert.Equal("E_INVALID_VALUE", error.Error.Code);
+        Assert.Equal(1, error.Error.ExitCode);
+        Assert.Contains(".bat/.cmd", error.Error.Hint);
+        Assert.Equal(script, (await arranged.Store.GetCommandAsync(id))!.FilePath);
+    }
+
+    [Theory]
+    [InlineData("script.BAT")]
+    [InlineData("script.Cmd")]
+    [InlineData("script.bat")]
+    public async Task Add_accepts_batch_extensions_case_insensitively(string fileName)
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        var script = arranged.Temp.CreateScript(fileName);
+        using var services = CliServicesFactory.Create(arranged.Session);
+
+        var result = await CommandCommands.AddAsync(
+            Parse("commands", "add", "--name", "x", "--file", script), services, arranged.Store, arranged.Resolver);
+
+        Assert.Equal(script, result.Data!["filePath"]!.GetValue<string>());
+    }
+
+    [Theory]
+    [InlineData("script.BAT")]
+    [InlineData("script.CMD")]
+    public async Task Edit_accepts_batch_extensions_case_insensitively(string fileName)
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        var original = arranged.Temp.CreateScript("backup.cmd");
+        var id = await arranged.Store.CreateCommandAsync(new Command { Name = "备份", FilePath = original, GroupId = 1 });
+        var replacement = arranged.Temp.CreateScript(fileName);
+        using var services = CliServicesFactory.Create(arranged.Session);
+
+        var result = await CommandCommands.EditAsync(
+            Parse("commands", "edit", id.ToString(), "--file", replacement), services, arranged.Store, arranged.Resolver);
+
+        Assert.Equal(replacement, result.Data!["filePath"]!.GetValue<string>());
+    }
+
     [Fact]
     public async Task Add_resolves_group_path_and_returns_group_id()
     {

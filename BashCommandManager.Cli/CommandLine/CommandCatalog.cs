@@ -78,7 +78,7 @@ public static class CommandCatalog
             new[]
             {
                 new OptionSpec("name", true, "显示名称", Required: true),
-                new OptionSpec("file", true, "批处理文件路径（必须存在）", Required: true),
+                new OptionSpec("file", true, "批处理文件路径（必须是已存在的 .bat/.cmd）", Required: true),
                 new OptionSpec("description", true, "描述，默认空"),
                 new OptionSpec("group", true, "所属分组，默认根分组 1")
             },
@@ -92,7 +92,7 @@ public static class CommandCatalog
             {
                 new OptionSpec("name", true, "新名称"),
                 new OptionSpec("description", true, "新描述（空串表示清空）"),
-                new OptionSpec("file", true, "新文件路径（必须存在）"),
+                new OptionSpec("file", true, "新文件路径（必须是已存在的 .bat/.cmd）"),
                 new OptionSpec("group", true, "移动到该分组")
             },
             1, 1,

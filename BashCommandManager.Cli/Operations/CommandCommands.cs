@@ -65,6 +65,7 @@ public static class CommandCommands
         {
             throw CliErrors.InvalidValue("--file 不能为空");
         }
+        EnsureBatchFile(filePath);
         if (!services.FileExists(filePath))
         {
             throw CliErrors.FileNotFound($"文件不存在: {filePath}");
@@ -121,6 +122,7 @@ public static class CommandCommands
         if (command.HasValue("file"))
         {
             var filePath = command.GetValue("file")!.Trim();
+            EnsureBatchFile(filePath);
             if (!services.FileExists(filePath))
             {
                 throw CliErrors.FileNotFound($"文件不存在: {filePath}");
@@ -278,6 +280,19 @@ public static class CommandCommands
         ["filePath"] = filePath,
         ["reason"] = reason
     };
+
+    // I-7：与 import 的扩展名过滤和 SKILL 的硬性约束保持一致，只登记批处理文件。
+    private static void EnsureBatchFile(string filePath)
+    {
+        var extension = Path.GetExtension(filePath);
+        if (!string.Equals(extension, ".bat", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(extension, ".cmd", StringComparison.OrdinalIgnoreCase))
+        {
+            throw CliErrors.InvalidValue(
+                $"只允许 .bat/.cmd 批处理文件: {filePath}",
+                "只登记 .bat/.cmd 批处理文件；不要为 .exe/.ps1 等创建壳命令");
+        }
+    }
 
     public static async Task<CliResult> ExportAsync(ParsedCommand command, CliServices services, CliCommandStore store, CommandResolver resolver)
     {

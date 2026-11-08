@@ -1,3 +1,4 @@
+using BashCommandManager.Core.Services;
 using BashCommandManager.ViewModels;
 using System.ComponentModel;
 using System.Windows;
@@ -9,6 +10,8 @@ namespace BashCommandManager;
 public partial class MainWindow : HandyControl.Controls.Window
 {
     private bool _isExiting = false; // 标记是否真正退出
+    private bool _viewLoaded;
+    private string[]? _pendingStartupArguments;
 
     public MainWindow(MainViewModel viewModel)
     {
@@ -21,6 +24,14 @@ public partial class MainWindow : HandyControl.Controls.Window
         Loaded += async (s, e) =>
         {
             await viewModel.GroupTreeViewModel.LoadGroupsAsync();
+
+            _viewLoaded = true;
+            if (_pendingStartupArguments is not null)
+            {
+                var pending = _pendingStartupArguments;
+                _pendingStartupArguments = null;
+                await ApplyStartupArgumentsCoreAsync(pending);
+            }
         };
 
         // 订阅窗体状态变化事件
@@ -132,6 +143,34 @@ public partial class MainWindow : HandyControl.Controls.Window
         WindowState = WindowState.Minimized; // 触发最小化
         Hide(); // 隐藏窗体
         base.OnClosing(e);
+    }
+
+    /// <summary>应用启动参数（--command &lt;id&gt;）；窗口未 Loaded 时先挂起。</summary>
+    public void ApplyStartupArguments(string[] args)
+    {
+        if (!_viewLoaded)
+        {
+            _pendingStartupArguments = args;
+            return;
+        }
+
+        _ = ApplyStartupArgumentsCoreAsync(args);
+    }
+
+    private async Task ApplyStartupArgumentsCoreAsync(string[] args)
+    {
+        if (DataContext is MainViewModel viewModel && StartupArgumentParser.TryGetCommandId(args, out var commandId))
+        {
+            try
+            {
+                await viewModel.SelectCommandAsync(commandId);
+            }
+            catch (Exception ex)
+            {
+                // 启动参数定位失败不应影响 GUI 正常使用（单实例回调是即发即忘的）
+                System.Diagnostics.Debug.WriteLine($"启动参数定位命令失败: {ex.Message}");
+            }
+        }
     }
 
     private void SearchBox_KeyDown(object sender, KeyEventArgs e)

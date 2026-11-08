@@ -11,21 +11,26 @@ namespace BashCommandManager.Core.Services
     {
         private const string MutexName = "BashCommandManager_SingleInstance_Mutex_v2";
         private const string PipeName = "BashCommandManager_SingleInstance_Pipe_v2";
-        private const string ActivateMessage = "ACTIVATE";
         private const int PipeConnectionTimeoutMs = 1000;
 
         private Mutex? _mutex;
         private bool _ownsMutex;
         private CancellationTokenSource? _cancellationTokenSource;
         private Task? _pipeServerTask;
-        private Action? _onActivateCallback;
+        private Action<string[]>? _onActivateCallback;
+        private string[] _startupArgs = Array.Empty<string>();
+
+        /// <summary>兼容重载：保留 #8 的旧签名（D5.3 只允许新增），内部转发到带参数版本。</summary>
+        public bool Initialize(Action onActivateCallback)
+            => Initialize(_ => onActivateCallback(), Array.Empty<string>());
 
         /// <summary>
-        /// 初始化单例服务
+        /// 初始化单例服务；startupArgs 为本次进程启动参数，会随激活消息转发给第一个实例。
         /// </summary>
-        public bool Initialize(Action onActivateCallback)
+        public bool Initialize(Action<string[]> onActivateCallback, string[] startupArgs)
         {
             _onActivateCallback = onActivateCallback;
+            _startupArgs = startupArgs ?? Array.Empty<string>();
             _cancellationTokenSource = new CancellationTokenSource();
 
             try
@@ -93,13 +98,13 @@ namespace BashCommandManager.Core.Services
                         using var reader = new StreamReader(pipeServer);
                         string? message = await reader.ReadLineAsync();
 
-                        if (message == ActivateMessage)
+                        if (SingleInstanceMessage.TryParse(message, out var activateArgs))
                         {
                             Application.Current.Dispatcher.Invoke(() =>
                             {
                                 try
                                 {
-                                    _onActivateCallback?.Invoke();
+                                    _onActivateCallback?.Invoke(activateArgs);
                                 }
                                 catch (Exception ex)
                                 {
@@ -137,7 +142,7 @@ namespace BashCommandManager.Core.Services
                 pipeClient.Connect(PipeConnectionTimeoutMs);
 
                 using var writer = new StreamWriter(pipeClient);
-                writer.WriteLine(ActivateMessage);
+                writer.WriteLine(SingleInstanceMessage.Format(_startupArgs));
                 writer.Flush();
             }
             catch (Exception ex)

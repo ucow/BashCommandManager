@@ -22,15 +22,18 @@ public partial class App : Application
     {
         _singleInstanceService = new SingleInstanceService();
 
-        bool isFirstInstance = _singleInstanceService.Initialize(() =>
-        {
-            if (MainWindow != null)
+        bool isFirstInstance = _singleInstanceService.Initialize(
+            args =>
             {
-                MainWindow.Show();
-                MainWindow.WindowState = WindowState.Normal;
-                MainWindow.Activate();
-            }
-        });
+                if (MainWindow is MainWindow window)
+                {
+                    window.Show();
+                    window.WindowState = WindowState.Normal;
+                    window.Activate();
+                    window.ApplyStartupArguments(args);
+                }
+            },
+            e.Args);
 
         if (!isFirstInstance)
         {
@@ -59,6 +62,7 @@ public partial class App : Application
         var mainWindow = ServiceProvider.GetRequiredService<MainWindow>();
         MainWindow = mainWindow;  // 赋值给属性以便回调访问
         mainWindow.Show();
+        mainWindow.ApplyStartupArguments(e.Args);
 
         // 热键宿主是进程级的：注册在这里，而不是主窗口的 Loaded/Closing。
         var settingsService = ServiceProvider.GetRequiredService<ISettingsService>();

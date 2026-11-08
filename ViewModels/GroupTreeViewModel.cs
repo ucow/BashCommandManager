@@ -131,6 +131,31 @@ public partial class GroupTreeViewModel : ObservableObject
         }
     }
 
+    /// <summary>在已加载的树中按 id 查找分组（含子分组，跳过虚拟节点）。</summary>
+    public Group? FindGroupById(int id)
+    {
+        return Find(Groups, id);
+
+        static Group? Find(IEnumerable<Group> nodes, int targetId)
+        {
+            foreach (var node in nodes)
+            {
+                if (!node.IsVirtual && node.Id == targetId)
+                {
+                    return node;
+                }
+
+                var found = Find(node.Children, targetId);
+                if (found is not null)
+                {
+                    return found;
+                }
+            }
+
+            return null;
+        }
+    }
+
     [RelayCommand]
     private async Task CreateGroupAsync(object? parameter)
     {

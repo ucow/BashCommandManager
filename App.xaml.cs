@@ -101,7 +101,7 @@ public partial class App : Application
         services.AddSingleton<ICommandExecutor, CommandExecutor>();
 
         // 新增：设置服务（单例）
-        services.AddSingleton<ISettingsService, SettingsService>();
+        services.AddSingleton<ISettingsService>(_ => new SettingsService());
 
         // 新增：全局快捷键服务（单例）
         services.AddSingleton<IGlobalHotkeyService, GlobalHotkeyService>();

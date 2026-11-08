@@ -45,9 +45,10 @@ public partial class App : Application
 
         // 初始化数据库
         var initializer = new DatabaseInitializer();
-        if (initializer.MigrationWarning is not null)
+        var migrationWarning = initializer.MigrationWarning;
+        if (migrationWarning is not null)
         {
-            System.Diagnostics.Debug.WriteLine($"[Database] {initializer.MigrationWarning}");
+            System.Diagnostics.Debug.WriteLine($"[Database] {migrationWarning}");
         }
         initializer.Initialize();
 
@@ -63,6 +64,12 @@ public partial class App : Application
         MainWindow = mainWindow;  // 赋值给属性以便回调访问
         mainWindow.Show();
         mainWindow.ApplyStartupArguments(e.Args);
+
+        // 迁移告警必须在窗口显示后弹出（Growl 需要已初始化的容器），且任何异常都不能影响启动。
+        if (migrationWarning is not null)
+        {
+            ShowMigrationWarning(migrationWarning, initializer.DatabasePath);
+        }
 
         // 热键宿主是进程级的：注册在这里，而不是主窗口的 Loaded/Closing。
         var settingsService = ServiceProvider.GetRequiredService<ISettingsService>();
@@ -82,6 +89,26 @@ public partial class App : Application
                 Message = "全局快捷键注册失败，可能已被其他程序占用",
                 WaitTime = 5
             });
+        }
+    }
+
+    private static void ShowMigrationWarning(string warning, string databasePath)
+    {
+        var message = MigrationNotice.Build(warning, databasePath);
+        System.Diagnostics.Debug.WriteLine($"[Database] {message}");
+
+        try
+        {
+            Growl.Warning(new GrowlInfo
+            {
+                Message = message,
+                WaitTime = 8
+            });
+        }
+        catch (Exception ex)
+        {
+            // 提示失败（如资源未初始化）绝不影响启动。
+            System.Diagnostics.Debug.WriteLine($"[Database] 显示迁移告警失败: {ex.Message}");
         }
     }
 

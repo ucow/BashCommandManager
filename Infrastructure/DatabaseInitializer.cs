@@ -18,7 +18,11 @@ public class DatabaseInitializer
         var prepared = DatabaseMigrator.Prepare(Resolution);
         DatabasePath = prepared.DatabasePath;
         MigrationWarning = prepared.Warning;
-        Source = prepared.Warning is null ? Resolution.Source : DatabasePathSource.LegacyApplicationDirectory;
+        // 只有真正回退到旧库时才标记来源为 LegacyApplicationDirectory：
+        // 目标已存在（I-4）虽带 Warning，但实际用的是 canonical 库。
+        Source = string.Equals(DatabasePath, Resolution.LegacyPath, StringComparison.OrdinalIgnoreCase)
+            ? DatabasePathSource.LegacyApplicationDirectory
+            : Resolution.Source;
 
         var dataDirectory = Path.GetDirectoryName(DatabasePath);
         if (!string.IsNullOrEmpty(dataDirectory))

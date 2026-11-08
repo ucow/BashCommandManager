@@ -52,10 +52,11 @@ public class DatabaseMigratorTests : IDisposable
         DatabaseMigrator.Prepare(Resolution());
 
         Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(CanonicalPath)!, "*.migrating-*"));
+        Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(CanonicalPath)!, "*.pending-*"));
     }
 
     [Fact]
-    public void Existing_target_is_treated_as_concurrent_success()
+    public void Existing_target_keeps_legacy_copy_as_pending_and_warns()
     {
         CreateLegacyDatabase("Commands");
         Directory.CreateDirectory(Path.GetDirectoryName(CanonicalPath)!);
@@ -68,12 +69,59 @@ public class DatabaseMigratorTests : IDisposable
 
         var result = DatabaseMigrator.Prepare(Resolution());
 
-        Assert.True(result.Migrated);
+        // 目标已存在时不能声称迁移成功：旧库数据并未被采用。
+        Assert.False(result.Migrated);
         Assert.Equal(CanonicalPath, result.DatabasePath);
-        using var connection = new SQLiteConnection($"Data Source={CanonicalPath};Version=3;");
-        connection.Open();
-        using var command = new SQLiteCommand("SELECT COUNT(*) FROM Marker", connection);
-        Assert.Equal(1L, Convert.ToInt64(command.ExecuteScalar()));
+        Assert.NotNull(result.Warning);
+        Assert.Contains("目标库已存在", result.Warning!);
+        Assert.Contains(DatabasePathResolver.EnvironmentVariableName, result.Warning!);
+
+        var pendingFiles = Directory.GetFiles(
+            Path.GetDirectoryName(CanonicalPath)!,
+            "app.db.pending-*");
+        var pendingPath = Assert.Single(pendingFiles);
+        Assert.Contains(pendingPath, result.Warning!);
+        Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(CanonicalPath)!, "*.migrating-*"));
+
+        // 目标库保持原样，旧库快照完整保留在 pending 副本里。
+        using (var connection = new SQLiteConnection($"Data Source={CanonicalPath};Version=3;"))
+        {
+            connection.Open();
+            using var marker = new SQLiteCommand("SELECT COUNT(*) FROM Marker", connection);
+            Assert.Equal(1L, Convert.ToInt64(marker.ExecuteScalar()));
+        }
+
+        using (var pending = new SQLiteConnection($"Data Source={pendingPath};Version=3;"))
+        {
+            pending.Open();
+            using var commands = new SQLiteCommand("SELECT COUNT(*) FROM Commands", pending);
+            Assert.Equal(1L, Convert.ToInt64(commands.ExecuteScalar()));
+        }
+    }
+
+    [Fact]
+    public void Target_created_during_copy_also_keeps_pending_copy()
+    {
+        CreateLegacyDatabase("Commands");
+
+        var result = DatabaseMigrator.Prepare(
+            Resolution(),
+            copyDatabase: (source, target) =>
+            {
+                File.Copy(source, target);
+                Directory.CreateDirectory(Path.GetDirectoryName(CanonicalPath)!);
+                using var seed = new SQLiteConnection($"Data Source={CanonicalPath};Version=3;");
+                seed.Open();
+                using var seedCommand = new SQLiteCommand("CREATE TABLE Marker (Id INTEGER); INSERT INTO Marker (Id) VALUES (7);", seed);
+                seedCommand.ExecuteNonQuery();
+            });
+
+        Assert.False(result.Migrated);
+        Assert.Equal(CanonicalPath, result.DatabasePath);
+        Assert.NotNull(result.Warning);
+        var pendingPath = Assert.Single(
+            Directory.GetFiles(Path.GetDirectoryName(CanonicalPath)!, "app.db.pending-*"));
+        Assert.Contains(pendingPath, result.Warning!);
     }
 
     [Fact]

@@ -168,8 +168,11 @@ public static class DatabaseMigrator
 
             if (File.Exists(targetPath))
             {
-                TryDelete(tempPath);
-                return new DatabasePreparationResult(targetPath, true, null);
+                var preserved = PreserveTempCopy(tempPath, targetPath);
+                return new DatabasePreparationResult(
+                    targetPath,
+                    false,
+                    BuildTargetExistsWarning(targetPath, preserved));
             }
 
             try
@@ -178,8 +181,11 @@ public static class DatabaseMigrator
             }
             catch (IOException) when (File.Exists(targetPath))
             {
-                TryDelete(tempPath);
-                return new DatabasePreparationResult(targetPath, true, null);
+                var preserved = PreserveTempCopy(tempPath, targetPath);
+                return new DatabasePreparationResult(
+                    targetPath,
+                    false,
+                    BuildTargetExistsWarning(targetPath, preserved));
             }
 
             return new DatabasePreparationResult(targetPath, true, null);
@@ -191,6 +197,35 @@ public static class DatabaseMigrator
             return new DatabasePreparationResult(legacyPath, false, $"数据库迁移失败，已回退使用旧库: {ex.Message}");
         }
     }
+
+    /// <summary>
+    /// 目标库在复制期间已存在（并发初始化/迁移）：不能把刚复制出来的旧库快照静默丢弃，
+    /// 改名为 *.pending-{guid} 保留，返回实际保留路径供告警文案使用。
+    /// </summary>
+    private static string PreserveTempCopy(string tempPath, string targetPath)
+    {
+        var pendingPath = targetPath + ".pending-" + Guid.NewGuid().ToString("N");
+        try
+        {
+            if (File.Exists(tempPath))
+            {
+                File.Move(tempPath, pendingPath);
+                return pendingPath;
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // 保留改名失败时退回临时副本路径：文件仍在磁盘上，至少告警能指引用户找到它。
+            System.Diagnostics.Debug.WriteLine($"[Database] 保留旧库副本失败: {ex.Message}");
+        }
+
+        return tempPath;
+    }
+
+    private static string BuildTargetExistsWarning(string targetPath, string preservedPath)
+        => $"数据库迁移未完成：目标库已存在（{targetPath}），旧库副本已保留在 {preservedPath}。" +
+           $"如需使用旧数据，请关闭程序后把该副本复制到 {targetPath}，或设置环境变量 " +
+           $"{DatabasePathResolver.EnvironmentVariableName}={preservedPath} 后重启。";
 
     // 一致性快照复制：不用 File.Copy，避免热库撕裂
     private static void BackupCopy(string sourcePath, string targetPath)

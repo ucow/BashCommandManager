@@ -253,6 +253,102 @@ public class RunCommandTests
     }
 
     [Fact]
+    public async Task Dry_run_reports_null_verb_when_not_elevated()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        using var services = CliServicesFactory.Create(arranged.Session, arranged.Settings, arranged.Runner, locator: arranged.Locator);
+
+        var result = await RunCommand.ExecuteAsync(
+            Parse("run", arranged.CommandId.ToString(), "--dry-run"), services, arranged.Store, arranged.Resolver);
+
+        Assert.True(result.Data!.AsObject().ContainsKey("verb"));
+        Assert.Null(result.Data!["verb"]);
+    }
+
+    [Fact]
+    public async Task Dry_run_reports_runas_verb_when_admin_requested()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        using var services = CliServicesFactory.Create(arranged.Session, arranged.Settings, arranged.Runner, locator: arranged.Locator);
+
+        var result = await RunCommand.ExecuteAsync(
+            Parse("run", arranged.CommandId.ToString(), "--admin", "--dry-run"), services, arranged.Store, arranged.Resolver);
+
+        Assert.Equal("runas", result.Data!["verb"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Wait_with_global_admin_is_usage_error()
+    {
+        var arranged = await ArrangeAsync(new ExecutionSettings { RunAsAdministrator = true });
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        using var services = CliServicesFactory.Create(arranged.Session, arranged.Settings, arranged.Runner, locator: arranged.Locator);
+
+        var error = await Assert.ThrowsAsync<CliFailureException>(() =>
+            RunCommand.ExecuteAsync(Parse("run", arranged.CommandId.ToString(), "--wait"), services, arranged.Store, arranged.Resolver));
+
+        Assert.Equal("E_USAGE", error.Error.Code);
+        Assert.Equal(1, error.Error.ExitCode);
+        Assert.Contains("--wait 不支持管理员运行", error.Error.Message);
+        Assert.Contains("关闭全局管理员运行", error.Error.Message);
+        Assert.Empty(arranged.Runner.Requests);
+        Assert.Equal(0, (await arranged.Store.GetCommandAsync(arranged.CommandId))!.ExecutionCount);
+    }
+
+    [Fact]
+    public async Task Wait_dry_run_with_global_admin_is_usage_error_too()
+    {
+        var arranged = await ArrangeAsync(new ExecutionSettings { RunAsAdministrator = true });
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        using var services = CliServicesFactory.Create(arranged.Session, arranged.Settings, arranged.Runner, locator: arranged.Locator);
+
+        var error = await Assert.ThrowsAsync<CliFailureException>(() =>
+            RunCommand.ExecuteAsync(Parse("run", arranged.CommandId.ToString(), "--wait", "--dry-run"), services, arranged.Store, arranged.Resolver));
+
+        Assert.Equal("E_USAGE", error.Error.Code);
+        Assert.Equal(1, error.Error.ExitCode);
+    }
+
+    [Fact]
+    public async Task Wait_without_global_admin_still_runs_normally()
+    {
+        var arranged = await ArrangeAsync(new ExecutionSettings { RunAsAdministrator = false });
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        arranged.Runner.RunResult = new ProcessRunResult(true, 4321, 0, false);
+        using var services = CliServicesFactory.Create(arranged.Session, arranged.Settings, arranged.Runner, locator: arranged.Locator);
+
+        var result = await RunCommand.ExecuteAsync(
+            Parse("run", arranged.CommandId.ToString(), "--wait"), services, arranged.Store, arranged.Resolver);
+
+        Assert.True(result.Data!["waited"]!.GetValue<bool>());
+        Assert.Single(arranged.Runner.Requests);
+    }
+
+    [Fact]
+    public async Task Invalid_template_is_config_key_error()
+    {
+        var arranged = await ArrangeAsync(new ExecutionSettings { ArgumentsTemplate = "/k no-placeholder" });
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        using var services = CliServicesFactory.Create(arranged.Session, arranged.Settings, arranged.Runner, locator: arranged.Locator);
+
+        var error = await Assert.ThrowsAsync<CliFailureException>(() =>
+            RunCommand.ExecuteAsync(Parse("run", arranged.CommandId.ToString(), "--dry-run"), services, arranged.Store, arranged.Resolver));
+
+        Assert.Equal("E_CONFIG_KEY", error.Error.Code);
+        Assert.Equal(1, error.Error.ExitCode);
+        Assert.Contains("参数模板必须包含", error.Error.Message);
+        Assert.Equal("检查 Execution 配置或运行 bcm config get", error.Error.Hint);
+    }
+
+    [Fact]
     public async Task Name_lookup_with_group_scope_works()
     {
         var arranged = await ArrangeAsync();

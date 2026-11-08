@@ -35,21 +35,30 @@ public static class RunCommand
 
         if (wait)
         {
+            // 缺陷 A：UseShellExecute=false 时 Verb=runas 会被静默忽略，必须显式拒绝而不假装提权。
+            if (settings.RunAsAdministrator)
+            {
+                throw CliErrors.Usage(
+                    "--wait 不支持管理员运行，请关闭全局管理员运行或去掉 --wait",
+                    "在设置窗口的「执行」页关闭「默认以管理员身份运行」");
+            }
+
             settings = WithoutKeepWindowOpen(settings);
         }
 
         if (command.HasFlag("dry-run"))
         {
-            var preview = TerminalCommandBuilder.Build(settings, entity);
+            var preview = BuildPlan(settings, entity);
             var previewData = new JsonObject
             {
                 ["dryRun"] = true,
                 ["fileName"] = preview.FileName,
                 ["arguments"] = preview.Arguments,
-                ["workingDirectory"] = preview.WorkingDirectory
+                ["workingDirectory"] = preview.WorkingDirectory,
+                ["verb"] = preview.Verb
             };
             return CliResult.Object(previewData,
-                $"fileName: {preview.FileName}{Environment.NewLine}arguments: {preview.Arguments}{Environment.NewLine}workingDirectory: {preview.WorkingDirectory}");
+                $"fileName: {preview.FileName}{Environment.NewLine}arguments: {preview.Arguments}{Environment.NewLine}workingDirectory: {preview.WorkingDirectory}{Environment.NewLine}verb: {(preview.Verb ?? "null")}");
         }
 
         if (!services.FileExists(entity.FilePath))
@@ -73,7 +82,7 @@ public static class RunCommand
                 "在设置窗口修正「执行」页的自定义程序路径", exitCode: 3);
         }
 
-        var plan = TerminalCommandBuilder.Build(settings, entity, resolved);
+        var plan = BuildPlan(settings, entity, resolved);
         var stopwatch = Stopwatch.StartNew();
 
         if (wait)
@@ -150,6 +159,20 @@ public static class RunCommand
         catch (Win32Exception ex) when (ex.NativeErrorCode == ErrorCancelled)
         {
             throw CliErrors.ElevationCancelled();
+        }
+    }
+
+    // 缺陷 B：模板非法/自定义路径为空属于配置错误，映射到 E_CONFIG_KEY(1) 而不是兜底 E_INTERNAL(3)。
+    private static TerminalLaunchPlan BuildPlan(ExecutionSettings settings, Command command, string? resolvedExecutable = null)
+    {
+        try
+        {
+            return TerminalCommandBuilder.Build(settings, command, resolvedExecutable);
+        }
+        catch (TerminalConfigurationException ex)
+        {
+            throw CliErrors.ConfigKey($"Execution 配置无效: {ex.Message}",
+                "检查 Execution 配置或运行 bcm config get");
         }
     }
 

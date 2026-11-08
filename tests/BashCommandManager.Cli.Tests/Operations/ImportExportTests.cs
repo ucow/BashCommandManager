@@ -181,4 +181,108 @@ public class ImportExportTests
         Assert.Equal(ops, result.Data!["group"]!["id"]!.GetValue<int>());
         Assert.Equal("运维", result.Data!["group"]!["name"]!.GetValue<string>());
     }
+
+    [Fact]
+    public async Task Export_without_output_returns_document_in_data()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        var ops = await arranged.Store.CreateGroupAsync("运维", 1);
+        await arranged.Store.CreateCommandAsync(new Command { Name = "备份", FilePath = @"D:\a.bat", GroupId = ops });
+        using var services = CliServicesFactory.Create(arranged.Session);
+
+        var result = await CommandCommands.ExportAsync(Parse("commands", "export"), services, arranged.Store, arranged.Resolver);
+
+        var data = result.Data!.AsObject();
+        Assert.Equal(1, data["schemaVersion"]!.GetValue<int>());
+        Assert.NotNull(data["exportedAt"]);
+        Assert.Single(data["groups"]!.AsArray());
+        Assert.Equal(ops, data["groups"]![0]!["id"]!.GetValue<int>());
+        Assert.Single(data["commands"]!.AsArray());
+        Assert.Equal("运维", data["commands"]![0]!["groupName"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Export_group_filter_is_non_recursive_by_default()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        var ops = await arranged.Store.CreateGroupAsync("运维", 1);
+        var prod = await arranged.Store.CreateGroupAsync("生产", ops);
+        await arranged.Store.CreateCommandAsync(new Command { Name = "备份", FilePath = @"D:\a.bat", GroupId = ops });
+        await arranged.Store.CreateCommandAsync(new Command { Name = "发布", FilePath = @"D:\b.bat", GroupId = prod });
+        using var services = CliServicesFactory.Create(arranged.Session);
+
+        var shallow = await CommandCommands.ExportAsync(Parse("commands", "export", "--group", "运维"), services, arranged.Store, arranged.Resolver);
+        var deep = await CommandCommands.ExportAsync(Parse("commands", "export", "--group", "运维", "--recursive"), services, arranged.Store, arranged.Resolver);
+
+        Assert.Single(shallow.Data!["commands"]!.AsArray());
+        Assert.Equal(2, deep.Data!["commands"]!.AsArray().Count);
+    }
+
+    [Fact]
+    public async Task Export_writes_json_file_and_reports_count()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        await arranged.Store.CreateCommandAsync(new Command { Name = "备份", FilePath = @"D:\a.bat", GroupId = 1 });
+        var output = Path.Combine(arranged.Temp.Root, "backup.json");
+        using var services = CliServicesFactory.Create(arranged.Session);
+
+        var result = await CommandCommands.ExportAsync(
+            Parse("commands", "export", "--format", "json", "--output", output), services, arranged.Store, arranged.Resolver);
+
+        Assert.Equal(output, result.Data!["path"]!.GetValue<string>());
+        Assert.Equal("json", result.Data!["format"]!.GetValue<string>());
+        Assert.Equal(1, result.Data!["count"]!.GetValue<int>());
+        Assert.True(File.Exists(output));
+        var document = JsonNode.Parse(File.ReadAllText(output))!.AsObject();
+        Assert.Equal(1, document["schemaVersion"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public async Task Export_writes_csv_with_fixed_columns_and_escaping()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        await arranged.Store.CreateCommandAsync(new Command
+        {
+            Name = "备份,每日",
+            Description = "含 \"引号\" 的描述",
+            FilePath = @"D:\bat\备份.bat",
+            GroupId = 1
+        });
+        var output = Path.Combine(arranged.Temp.Root, "backup.csv");
+        using var services = CliServicesFactory.Create(arranged.Session);
+
+        var result = await CommandCommands.ExportAsync(
+            Parse("commands", "export", "--format", "csv", "--output", output), services, arranged.Store, arranged.Resolver);
+
+        Assert.Equal(1, result.Data!["count"]!.GetValue<int>());
+        var lines = File.ReadAllLines(output);
+        Assert.Equal("id,name,description,filePath,groupId,groupName,sortOrder,executionCount,lastExecutedAt", lines[0]);
+        Assert.Contains("\"备份,每日\"", lines[1]);
+        Assert.Contains("\"含 \"\"引号\"\" 的描述\"", lines[1]);
+        Assert.Equal(2, lines.Length);
+    }
+
+    [Fact]
+    public async Task Export_csv_is_utf8_without_bom()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        await arranged.Store.CreateCommandAsync(new Command { Name = "备份", FilePath = @"D:\a.bat", GroupId = 1 });
+        var output = Path.Combine(arranged.Temp.Root, "backup.csv");
+        using var services = CliServicesFactory.Create(arranged.Session);
+
+        await CommandCommands.ExportAsync(Parse("commands", "export", "--format", "csv", "--output", output), services, arranged.Store, arranged.Resolver);
+
+        var bytes = File.ReadAllBytes(output);
+        Assert.False(bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF);
+    }
 }

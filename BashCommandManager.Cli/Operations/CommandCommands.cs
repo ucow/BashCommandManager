@@ -279,6 +279,132 @@ public static class CommandCommands
         ["reason"] = reason
     };
 
+    public static async Task<CliResult> ExportAsync(ParsedCommand command, CliServices services, CliCommandStore store, CommandResolver resolver)
+    {
+        IReadOnlyList<int> scopeGroupIds = Array.Empty<int>();
+        if (command.GetValue("group") is string groupToken)
+        {
+            var group = await resolver.ResolveGroupAsync(groupToken);
+            scopeGroupIds = command.HasFlag("recursive")
+                ? await store.GetGroupSubtreeIdsAsync(group.Id)
+                : new[] { group.Id };
+        }
+
+        var all = await store.GetAllCommandsAsync();
+        var selected = scopeGroupIds.Count == 0
+            ? all
+            : all.Where(item => scopeGroupIds.Contains(item.GroupId)).ToList();
+        await store.FillGroupNamesAsync(selected);
+        selected = selected.OrderBy(item => item.Id).ToList();
+
+        var format = (command.GetValue("format") ?? "json").ToLowerInvariant();
+        var outputPath = command.GetValue("output");
+        var groups = await store.GetGroupsAsync();
+        var referencedGroupIds = selected.Select(item => item.GroupId).Distinct().OrderBy(id => id).ToList();
+
+        if (format == "csv")
+        {
+            var csv = BuildCsv(selected);
+            var target = Path.GetFullPath(outputPath!);
+            try
+            {
+                File.WriteAllText(target, csv, new System.Text.UTF8Encoding(false));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw CliErrors.Internal($"写入导出文件失败: {ex.Message}");
+            }
+
+            var data = new JsonObject { ["path"] = target, ["format"] = "csv", ["count"] = selected.Count };
+            return CliResult.Object(data, $"path: {target}{Environment.NewLine}count: {selected.Count}");
+        }
+
+        var document = BuildJsonDocument(selected, groups, referencedGroupIds);
+        if (outputPath is null)
+        {
+            return new CliResult(document, null, $"schemaVersion: 1{Environment.NewLine}commands: {selected.Count}");
+        }
+
+        var jsonTarget = Path.GetFullPath(outputPath);
+        try
+        {
+            File.WriteAllText(jsonTarget,
+                document.ToJsonString(new System.Text.Json.JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                }),
+                new System.Text.UTF8Encoding(false));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw CliErrors.Internal($"写入导出文件失败: {ex.Message}");
+        }
+
+        var written = new JsonObject { ["path"] = jsonTarget, ["format"] = "json", ["count"] = selected.Count };
+        return CliResult.Object(written, $"path: {jsonTarget}{Environment.NewLine}count: {selected.Count}");
+    }
+
+    private static JsonObject BuildJsonDocument(
+        IReadOnlyList<Command> commands,
+        IReadOnlyList<Group> groups,
+        IReadOnlyList<int> referencedGroupIds)
+    {
+        var groupNodes = new JsonArray();
+        foreach (var id in referencedGroupIds)
+        {
+            var group = groups.FirstOrDefault(item => item.Id == id);
+            if (group is not null)
+            {
+                groupNodes.Add(JsonShapes.GroupNode(group));
+            }
+        }
+
+        var commandNodes = new JsonArray();
+        foreach (var item in commands)
+        {
+            commandNodes.Add(JsonShapes.Command(item, item.GroupName, includeFileExists: false, _ => false));
+        }
+
+        return new JsonObject
+        {
+            ["schemaVersion"] = 1,
+            ["exportedAt"] = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture),
+            ["groups"] = groupNodes,
+            ["commands"] = commandNodes
+        };
+    }
+
+    private static string BuildCsv(IReadOnlyList<Command> commands)
+    {
+        var builder = new System.Text.StringBuilder();
+        builder.Append("id,name,description,filePath,groupId,groupName,sortOrder,executionCount,lastExecutedAt").Append("\r\n");
+        foreach (var item in commands)
+        {
+            builder
+                .Append(item.Id).Append(',')
+                .Append(EscapeCsv(item.Name)).Append(',')
+                .Append(EscapeCsv(item.Description ?? string.Empty)).Append(',')
+                .Append(EscapeCsv(item.FilePath)).Append(',')
+                .Append(item.GroupId).Append(',')
+                .Append(EscapeCsv(item.GroupName)).Append(',')
+                .Append(item.SortOrder).Append(',')
+                .Append(item.ExecutionCount).Append(',')
+                .Append(EscapeCsv(JsonShapes.FormatTimestamp(item.LastExecutedAt) ?? string.Empty))
+                .Append("\r\n");
+        }
+        return builder.ToString();
+    }
+
+    private static string EscapeCsv(string value)
+    {
+        if (value.IndexOfAny(new[] { ',', '"', '\r', '\n' }) < 0)
+        {
+            return value;
+        }
+        return "\"" + value.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
+    }
+
     internal static (SortOption Sort, SortDirection Direction) ParseSort(ParsedCommand command)
     {
         var sort = (command.GetValue("sort") ?? "name").ToLowerInvariant() switch

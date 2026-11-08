@@ -1,3 +1,4 @@
+using BashCommandManager.Cli.Application;
 using BashCommandManager.Cli.Infrastructure;
 
 namespace BashCommandManager.Cli.CommandLine;
@@ -143,6 +144,10 @@ public static class CommandLineParser
             return new ParsedCommand("help." + commandPath, spec.Verb, values, flags, arguments, flags.Contains("json"), databasePath);
         }
 
+        ValidateRequiredOptions(spec!, values, flags);
+        ValidateArgumentCount(spec!, arguments);
+        ValidateSemantics(spec!, values, flags, arguments);
+
         if (databasePath is not null)
         {
             var fullPath = Path.GetFullPath(databasePath);
@@ -202,4 +207,150 @@ public static class CommandLineParser
 
     private static IEnumerable<string> SubVerbs(string verb)
         => CommandCatalog.Commands.Where(spec => spec.Verb == verb && spec.SubVerb is not null).Select(spec => spec.SubVerb!);
+
+    private static readonly HashSet<string> ConfigKeys = new(StringComparer.Ordinal)
+    {
+        "hotkey", "hotkey.enabled", "db.path", "db.source", "settings.path", "gui.path", "version"
+    };
+
+    private static void ValidateRequiredOptions(CommandSpec spec, IReadOnlyDictionary<string, string> values, IReadOnlySet<string> flags)
+    {
+        foreach (var option in spec.Options.Where(option => option.Required))
+        {
+            var present = values.ContainsKey(option.Name) || flags.Contains(option.Name);
+            if (present)
+            {
+                continue;
+            }
+
+            if (option.Name == "force")
+            {
+                throw CliErrors.ConfirmRequired($"命令 {spec.Path} 删除数据需要显式确认（--force）");
+            }
+
+            throw CliErrors.Usage($"缺少必填选项 --{option.Name}: {spec.Usage}", $"示例: {spec.Examples[0]}");
+        }
+    }
+
+    private static void ValidateArgumentCount(CommandSpec spec, IReadOnlyList<string> arguments)
+    {
+        if (arguments.Count < spec.MinArguments)
+        {
+            throw CliErrors.Usage($"缺少位置参数: {spec.Usage}", $"示例: {spec.Examples[0]}");
+        }
+
+        if (arguments.Count > spec.MaxArguments)
+        {
+            throw CliErrors.Usage($"位置参数过多（最多 {spec.MaxArguments} 个）: {spec.Usage}");
+        }
+    }
+
+    private static void ValidateSemantics(
+        CommandSpec spec,
+        IReadOnlyDictionary<string, string> values,
+        IReadOnlySet<string> flags,
+        IReadOnlyList<string> arguments)
+    {
+        foreach (var option in spec.Options)
+        {
+            if (option.AllowedValues is null || !values.TryGetValue(option.Name, out var value))
+            {
+                continue;
+            }
+
+            if (!option.AllowedValues.Contains(value, StringComparer.OrdinalIgnoreCase))
+            {
+                throw CliErrors.InvalidValue($"--{option.Name} 的值非法: {value}",
+                    $"可选值: {string.Join(",", option.AllowedValues)}");
+            }
+        }
+
+        switch (spec.Path)
+        {
+            case "commands.list":
+            case "commands.search":
+                if (values.TryGetValue("limit", out var limitText) && (!int.TryParse(limitText, out var limit) || limit < 0))
+                {
+                    throw CliErrors.InvalidValue($"--limit 需要非负整数: {limitText}");
+                }
+                break;
+
+            case "commands.frequent":
+                if (values.TryGetValue("limit", out var frequentText) &&
+                    (!int.TryParse(frequentText, out var frequentLimit) || frequentLimit < 1 || frequentLimit > 1000))
+                {
+                    throw CliErrors.InvalidValue($"--limit 需要 1-1000 的整数: {frequentText}");
+                }
+                break;
+
+            case "commands.edit":
+                var hasChange = spec.Options.Any(option => values.ContainsKey(option.Name) || flags.Contains(option.Name));
+                if (!hasChange)
+                {
+                    throw CliErrors.Usage("commands edit 至少需要一项修改: --name/--description/--file/--group",
+                        "示例: bcm commands edit 7 --description \"每日 2:00\"");
+                }
+                break;
+
+            case "commands.export":
+                if (values.TryGetValue("format", out var format) &&
+                    string.Equals(format, "csv", StringComparison.OrdinalIgnoreCase) &&
+                    !values.ContainsKey("output"))
+                {
+                    throw CliErrors.Usage("--format csv 需要同时指定 --output <文件>",
+                        "示例: bcm commands export --format csv --output backup.csv");
+                }
+                break;
+
+            case "run":
+                var wait = flags.Contains("wait");
+                if (flags.Contains("admin") && wait)
+                {
+                    throw CliErrors.Usage("--admin 不能与 --wait 同时使用", "提权窗口不支持等待退出码");
+                }
+                if (values.TryGetValue("timeout", out var timeoutText))
+                {
+                    if (!wait)
+                    {
+                        throw CliErrors.Usage("--timeout 只能与 --wait 一起使用");
+                    }
+                    if (!int.TryParse(timeoutText, out var seconds) || seconds < 1)
+                    {
+                        throw CliErrors.InvalidValue($"--timeout 需要正整数秒: {timeoutText}");
+                    }
+                }
+                break;
+
+            case "config.get":
+                if (arguments.Count == 1 && !ConfigKeys.Contains(arguments[0]))
+                {
+                    throw CliErrors.ConfigKey($"未知配置键: {arguments[0]}", $"可用键: {string.Join(",", ConfigKeys)}");
+                }
+                break;
+
+            case "config.set":
+                var configKey = arguments[0];
+                if (configKey is not ("hotkey" or "hotkey.enabled"))
+                {
+                    throw CliErrors.ConfigKey($"未知配置键: {configKey}", "可用键: hotkey,hotkey.enabled");
+                }
+                if (configKey == "hotkey.enabled" && !bool.TryParse(arguments[1], out _))
+                {
+                    throw CliErrors.InvalidValue($"hotkey.enabled 需要 true 或 false: {arguments[1]}");
+                }
+                if (configKey == "hotkey")
+                {
+                    HotkeySpec.Parse(arguments[1]);
+                }
+                break;
+
+            case "open":
+                if (values.TryGetValue("command", out var commandText) &&
+                    (!int.TryParse(commandText, out var commandId) || commandId < 1))
+                {
+                    throw CliErrors.InvalidValue($"--command 需要正整数 id: {commandText}");
+                }
+                break;
+        }
+    }
 }

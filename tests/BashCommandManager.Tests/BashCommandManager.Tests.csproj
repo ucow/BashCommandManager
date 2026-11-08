@@ -22,4 +22,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\BashCommandManager.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\BashCommandManager.Cli\Application\HotkeyKeyMap.cs" Link="Shared\HotkeyKeyMap.cs" />
+  </ItemGroup>
 </Project>

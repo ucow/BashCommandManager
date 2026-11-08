@@ -34,6 +34,6 @@
     <Compile Include="..\Core\Services\ExecutionResult.cs" Link="Shared\Core\Services\ExecutionResult.cs" />
     <Compile Include="..\Core\Services\ExecutableLocator.cs" Link="Shared\Core\Services\ExecutableLocator.cs" />
     <Compile Include="..\Infrastructure\DatabaseInitializer.cs" Link="Shared\Infrastructure\DatabaseInitializer.cs" />
-    <!-- DatabasePathResolver.cs 在 Task 5 创建后再加入本 ItemGroup（见 Task 5 步骤 3） -->
+    <Compile Include="..\Infrastructure\DatabasePathResolver.cs" Link="Shared\Infrastructure\DatabasePathResolver.cs" />
   </ItemGroup>
 </Project>

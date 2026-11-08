@@ -11,16 +11,23 @@ public sealed class DatabaseSession : IDisposable
 {
     private readonly SQLiteConnection _connection;
 
-    public DatabaseSession(string? explicitDatabasePath)
+    public DatabaseSession(string? explicitDatabasePath, string? baseDirectory = null)
+        : this(new DatabaseInitializer(explicitDatabasePath, CliPaths.SettingsDirectory, baseDirectory))
     {
-        // settings 目录覆盖（BASHCOMMANDMANAGER_SETTINGS_DIR）同样作用于数据库解析（VD-6 / B-8）
-        var initializer = new DatabaseInitializer(explicitDatabasePath, CliPaths.SettingsDirectory);
+    }
+
+    private DatabaseSession(DatabaseInitializer initializer)
+    {
+        // settings 目录覆盖（BASHCOMMANDMANAGER_SETTINGS_DIR）同样作用于数据库解析（VD-6 / B-8）；
+        // baseDirectory 默认 AppContext.BaseDirectory，CLI 在 {app}\cli 时会自动命中 {app}\data\app.db。
         Resolution = initializer.Resolution;
         DatabasePath = initializer.DatabasePath;
-        MigrationWarning = initializer.MigrationWarning;
-        Source = initializer.MigrationWarning is null
-            ? initializer.Source
-            : DatabasePathSource.LegacyApplicationDirectory;
+        // I-4：迁移失败/目标已存在统一用 MigrationNotice 文案，既进 meta.warning 也写 stderr。
+        MigrationWarning = initializer.MigrationWarning is null
+            ? null
+            : MigrationNotice.Build(initializer.MigrationWarning, initializer.DatabasePath);
+        // Source 必须按「实际使用的库」判定：只有真回退旧库才是 Legacy（由 DatabaseInitializer 比较路径得出）。
+        Source = initializer.Source;
         Created = !File.Exists(DatabasePath);
 
         initializer.Initialize();
@@ -30,6 +37,9 @@ public sealed class DatabaseSession : IDisposable
         _connection.Open();
         _connection.Execute("PRAGMA busy_timeout = 3000;");
     }
+
+    /// <summary>用外部构造好的 DatabaseInitializer 开会话（测试/特殊宿主注入迁移实现时使用）。</summary>
+    public static DatabaseSession Create(DatabaseInitializer initializer) => new(initializer);
 
     public DatabasePathResolution Resolution { get; }
 

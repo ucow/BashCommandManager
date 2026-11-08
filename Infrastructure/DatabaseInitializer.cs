@@ -9,13 +9,16 @@ public class DatabaseInitializer
     public DatabaseInitializer(
         string? explicitDatabasePath = null,
         string? settingsDirectory = null,
-        string? baseDirectory = null)
+        string? baseDirectory = null,
+        Func<DatabasePathResolution, DatabasePreparationResult>? prepareDatabase = null)
     {
         Resolution = DatabasePathResolver.ResolveForCurrentProcess(
             explicitDatabasePath,
             settingsDirectory,
             baseDirectory);
-        var prepared = DatabaseMigrator.Prepare(Resolution);
+        var prepared = prepareDatabase is null
+            ? DatabaseMigrator.Prepare(Resolution)
+            : prepareDatabase(Resolution);
         DatabasePath = prepared.DatabasePath;
         MigrationWarning = prepared.Warning;
         // 只有真正回退到旧库时才标记来源为 LegacyApplicationDirectory：

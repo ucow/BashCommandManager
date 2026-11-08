@@ -35,5 +35,6 @@
     <Compile Include="..\Core\Services\ExecutableLocator.cs" Link="Shared\Core\Services\ExecutableLocator.cs" />
     <Compile Include="..\Infrastructure\DatabaseInitializer.cs" Link="Shared\Infrastructure\DatabaseInitializer.cs" />
     <Compile Include="..\Infrastructure\DatabasePathResolver.cs" Link="Shared\Infrastructure\DatabasePathResolver.cs" />
+    <Compile Include="..\Infrastructure\MigrationNotice.cs" Link="Shared\Infrastructure\MigrationNotice.cs" />
   </ItemGroup>
 </Project>

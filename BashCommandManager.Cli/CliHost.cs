@@ -62,6 +62,11 @@ public static class CliHost
 
             var result = CliDispatcher.ExecuteAsync(parsed, services, store, resolver).GetAwaiter().GetResult();
             output.WriteResult(result, BuildMeta(result, session, resolution, stopwatch.ElapsedMilliseconds));
+            if (session?.MigrationWarning is string migrationWarning)
+            {
+                // I-4：迁移失败/目标已存在除 meta.warning 外，也在 stderr 给人类可读告警；退出码不变。
+                stderr.WriteLine($"警告: {migrationWarning}");
+            }
             return 0;
         }
         catch (CliFailureException ex)

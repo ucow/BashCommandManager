@@ -180,6 +180,18 @@ after canonical exists: True；legacy still exists: True
 
 ---
 
+## 发布结果
+
+| 项 | 结果 |
+|---|---|
+| 版本 | `1.3.0`（GUI csproj、CLI csproj、两个 `.iss`、README 一致） |
+| 分支 | `feat/v1.3.0` → `master`（merge commit `15ea37a`），已推送 |
+| Tag | `v1.3.0`（annotated），已推送 |
+| GitHub Release | https://github.com/ucow/BashCommandManager/releases/tag/v1.3.0 |
+| 资产 | Full 75.4 MB / Lite 7.2 MB / CLI zip 29.5 MB |
+| 测试 | GUI 184、CLI 334 全绿；两侧构建 0 warning 0 error |
+| Issue | #8/#9/#10 的修复已随 Release 发布；**当前 GitHub token 没有 Issues 写权限，无法由代理关闭 issue，需仓库所有者手动关闭** |
+
 ## 发布门槛总检查
 
 | 项 | 状态 |

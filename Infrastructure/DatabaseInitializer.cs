@@ -1,24 +1,48 @@
-using System.Data;
 using System.Data.SQLite;
 using System.IO;
-using System.Reflection;
 
 namespace BashCommandManager.Infrastructure;
 
+/// <summary>数据库初始化：解析路径 → 必要时迁移 → 幂等建表。</summary>
 public class DatabaseInitializer
 {
-    private readonly string _dbPath;
-
-    public DatabaseInitializer()
+    public DatabaseInitializer(
+        string? explicitDatabasePath = null,
+        string? settingsDirectory = null,
+        string? baseDirectory = null,
+        Func<DatabasePathResolution, DatabasePreparationResult>? prepareDatabase = null)
     {
-        // 使用 AppContext.BaseDirectory 替代 Assembly.Location，支持单文件发布
-        var appDir = AppContext.BaseDirectory;
-        var dataDir = Path.Combine(appDir, "data");
-        Directory.CreateDirectory(dataDir);
-        _dbPath = Path.Combine(dataDir, "app.db");
+        Resolution = DatabasePathResolver.ResolveForCurrentProcess(
+            explicitDatabasePath,
+            settingsDirectory,
+            baseDirectory);
+        var prepared = prepareDatabase is null
+            ? DatabaseMigrator.Prepare(Resolution)
+            : prepareDatabase(Resolution);
+        DatabasePath = prepared.DatabasePath;
+        MigrationWarning = prepared.Warning;
+        // 只有真正回退到旧库时才标记来源为 LegacyApplicationDirectory：
+        // 目标已存在（I-4）虽带 Warning，但实际用的是 canonical 库。
+        Source = string.Equals(DatabasePath, Resolution.LegacyPath, StringComparison.OrdinalIgnoreCase)
+            ? DatabasePathSource.LegacyApplicationDirectory
+            : Resolution.Source;
+
+        var dataDirectory = Path.GetDirectoryName(DatabasePath);
+        if (!string.IsNullOrEmpty(dataDirectory))
+        {
+            Directory.CreateDirectory(dataDirectory);
+        }
     }
 
-    public string ConnectionString => $"Data Source={_dbPath};Version=3;";
+    public string DatabasePath { get; }
+
+    public string? MigrationWarning { get; }
+
+    public DatabasePathSource Source { get; }
+
+    public DatabasePathResolution Resolution { get; }
+
+    public string ConnectionString => $"Data Source={DatabasePath};Version=3;Foreign Keys=True;";
 
     public void Initialize()
     {

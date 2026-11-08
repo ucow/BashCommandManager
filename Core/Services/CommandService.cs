@@ -12,6 +12,7 @@ public interface ICommandService
     Task DeleteCommandAsync(int id);
     Task<IEnumerable<Command>> SearchAsync(string keyword);
     Task<IEnumerable<Command>> GetAllAsync();
+    Task<Command?> GetByIdAsync(int id);
 
     // 新增：支持排序的方法
     Task<IEnumerable<Command>> GetByGroupAsync(int groupId, SortOption sortBy, SortDirection direction);
@@ -91,6 +92,11 @@ public class CommandService : ICommandService
     public async Task<IEnumerable<Command>> GetAllAsync()
     {
         return await _repository.GetAllAsync();
+    }
+
+    public async Task<Command?> GetByIdAsync(int id)
+    {
+        return await _repository.GetByIdAsync(id);
     }
 
     public async Task<IEnumerable<Command>> GetByGroupAsync(int groupId, SortOption sortBy, SortDirection direction)

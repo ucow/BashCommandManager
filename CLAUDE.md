@@ -25,6 +25,9 @@ dotnet restore
 # 运行项目
 dotnet run
 
+# 运行单元测试
+dotnet test tests\BashCommandManager.Tests\BashCommandManager.Tests.csproj
+
 # 构建 Release
 dotnet build -c Release
 ```
@@ -37,6 +40,19 @@ dotnet publish -c Release -r win-x64 -p:SelfContained=true -p:PublishSingleFile=
 
 # 单文件发布（精简，需系统预装 .NET 8）
 dotnet publish -c Release -r win-x64 -p:SelfContained=false -p:PublishSingleFile=true
+```
+
+### CLI 构建与测试
+
+```bash
+# 构建 CLI
+dotnet build BashCommandManager.Cli/BashCommandManager.Cli.csproj -c Release
+
+# 运行 CLI 测试
+dotnet test tests/BashCommandManager.Cli.Tests/BashCommandManager.Cli.Tests.csproj
+
+# 运行 CLI
+./BashCommandManager.Cli/bin/Release/net8.0-windows/bcm.exe --help
 ```
 
 ### 打包安装程序
@@ -92,10 +108,10 @@ dotnet publish -c Release -r win-x64 -p:SelfContained=false -p:PublishSingleFile
 
 #### 3. 数据持久化
 
-SQLite 数据库存储在应用目录 `data/app.db`：
-- 自动创建表和索引
-- 外键级联删除
-- 初始化时插入根分组（Id=1）
+SQLite 数据库存储在 `%LOCALAPPDATA%\BashCommandManager\data\app.db`（`Infrastructure/DatabasePathResolver.cs` 统一解析）：
+- 旧位置 `{应用目录}\data\app.db` 仅在首次解析时作为迁移源，**只复制不删除**
+- 迁移失败会回退旧库并只写 `Debug.WriteLine`；`BASHCOMMANDMANAGER_DB` 可覆盖路径
+- 连接串含 `Foreign Keys=True`，删除分组会级联删除命令
 
 #### 4. MVVM 实现
 
@@ -110,6 +126,12 @@ SQLite 数据库存储在应用目录 `data/app.db`：
 - 不存储在数据库中
 - Id=0 表示展示所有命令
 - 右键菜单中隐藏新建/重命名/删除选项
+
+#### 6. 终端执行配置
+
+- 全局终端配置存于 `%LOCALAPPDATA%\BashCommandManager\settings.json` 的 `Execution` 段，根对象为 `{ "Hotkey": {...}, "Execution": {...} }`；旧扁平 `{"Enabled":...}` 格式首次保存前自动备份为 `settings.json.v1.bak`。
+- 命令行构造集中在纯函数 `Core/Services/TerminalCommandBuilder.Build`（占位符 `{file}` `{dir}` `{filePs}` `{dirPs}` `{fileRaw}` `{dirRaw}`），可执行文件探测在 `Core/Services/ExecutableLocator`；`CommandExecutor` 只负责 `Process.Start` 与状态回写。
+- wt/pwsh 缺失时降级 cmd 并 Growl 警告；自定义程序缺失时保存被拦截、执行报错但不崩溃；取消 UAC（Win32 1223）时状态回到 `Idle`。
 
 ### 文件组织约定
 
@@ -139,6 +161,13 @@ SQLite 数据库存储在应用目录 `data/app.db`：
 - 关闭按钮默认最小化到托盘
 - 真正退出需通过托盘菜单"退出"
 
+### 全局快捷键
+
+- 热键宿主是进程级的 message-only 窗口（`Core/Services/HotkeyMessageWindow.cs`，`HwndSource` + `Parent=HWND_MESSAGE`），与主窗口 `Show/Hide` 无关
+- 注册在 `App.OnStartup`，生命周期的注销只在 `App.OnExit`；`MainWindow` 不再持有 `IGlobalHotkeyService`
+- 「快照 → 决策 → 执行」是可单测的纯逻辑：`WindowTogglePolicy`、`HotkeyToggleCoordinator`；Win32 只在 `HotkeyNativeMethods` 与 `ForegroundWindowActivator` 两个薄层
+- 点 X 隐藏到托盘走 `MainWindow.OnClosing`（`e.Cancel = true`），不会注销热键
+
 ## 开发计划
 
 设计文档保存在 `docs/plans/`，命名格式：`YYYY-MM-DD-<feature>-design.md`
@@ -146,6 +175,9 @@ SQLite 数据库存储在应用目录 `data/app.db`：
 已完成：
 - 分组管理、命令导入执行、系统托盘、单实例启动
 - 多文件导入、确认删除对话框、应用图标
+- 终端可配置（cmd/PowerShell/wt/自定义，settings.json 嵌套格式与旧格式迁移）
 
 待完成：
 - 开机自启动、主题切换
+
+CLI（`bcm`）覆盖 `groups/commands/run/config/open` 共 19 条子命令，操作说明见 `.claude/skills/bash-command-manager/SKILL.md`。

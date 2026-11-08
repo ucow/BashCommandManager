@@ -1,0 +1,446 @@
+using BashCommandManager.Cli.Application;
+using BashCommandManager.Cli.CommandLine;
+using BashCommandManager.Cli.Infrastructure;
+using BashCommandManager.Cli.Output;
+using BashCommandManager.Core.Models;
+using System.Globalization;
+using System.Text.Json.Nodes;
+
+namespace BashCommandManager.Cli.Operations;
+
+/// <summary>commands 子命令。每个子命令一个方法，逐条实现。</summary>
+public static class CommandCommands
+{
+    public static Task<CliResult> ListAsync(ParsedCommand command, CliCommandStore store, CommandResolver resolver)
+        => ListCoreAsync(command, store, resolver, keyword: null);
+
+    public static Task<CliResult> SearchAsync(ParsedCommand command, CliCommandStore store, CommandResolver resolver)
+        => ListCoreAsync(command, store, resolver, keyword: command.Arguments[0]);
+
+    private static async Task<CliResult> ListCoreAsync(
+        ParsedCommand command,
+        CliCommandStore store,
+        CommandResolver resolver,
+        string? keyword)
+    {
+        int? groupId = null;
+        if (command.GetValue("group") is string groupToken)
+        {
+            groupId = (await resolver.ResolveGroupAsync(groupToken)).Id;
+        }
+
+        var (sort, direction) = ParseSort(command);
+        var limit = ParseLimit(command);
+        var commands = keyword is null
+            ? await store.GetCommandsAsync(groupId, sort, direction, limit)
+            : await store.SearchCommandsAsync(keyword, groupId, sort, direction, limit);
+        await store.FillGroupNamesAsync(commands);
+
+        var items = new JsonArray();
+        foreach (var item in commands)
+        {
+            items.Add(JsonShapes.Command(item, item.GroupName, includeFileExists: false, _ => false));
+        }
+        return CliResult.Items(items);
+    }
+
+    public static async Task<CliResult> ShowAsync(ParsedCommand command, CliServices services, CliCommandStore store, CommandResolver resolver)
+    {
+        var item = await resolver.ResolveCommandAsync(command.Arguments[0], command.GetValue("group"));
+        var group = await store.GetGroupAsync(item.GroupId);
+        var data = JsonShapes.Command(item, group?.Name, includeFileExists: true, services.FileExists);
+        return CliResult.Object(data);
+    }
+
+    public static async Task<CliResult> AddAsync(ParsedCommand command, CliServices services, CliCommandStore store, CommandResolver resolver)
+    {
+        var name = (command.GetValue("name") ?? string.Empty).Trim();
+        if (name.Length == 0)
+        {
+            throw CliErrors.InvalidValue("命令名称不能为空");
+        }
+
+        var filePath = (command.GetValue("file") ?? string.Empty).Trim();
+        if (filePath.Length == 0)
+        {
+            throw CliErrors.InvalidValue("--file 不能为空");
+        }
+        EnsureBatchFile(filePath);
+        if (!services.FileExists(filePath))
+        {
+            throw CliErrors.FileNotFound($"文件不存在: {filePath}");
+        }
+
+        int groupId = 1;
+        if (command.GetValue("group") is string groupToken)
+        {
+            groupId = (await resolver.ResolveGroupAsync(groupToken)).Id;
+        }
+
+        var sortOrder = await store.CountCommandsInGroupAsync(groupId);
+        var entity = new Command
+        {
+            Name = name,
+            Description = command.GetValue("description") ?? string.Empty,
+            FilePath = Path.GetFullPath(filePath),
+            GroupId = groupId,
+            SortOrder = sortOrder
+        };
+        var id = await store.CreateCommandAsync(entity);
+
+        var data = new JsonObject
+        {
+            ["id"] = id,
+            ["name"] = entity.Name,
+            ["filePath"] = entity.FilePath,
+            ["groupId"] = groupId
+        };
+        return CliResult.Object(data, $"id: {id}{Environment.NewLine}name: {entity.Name}{Environment.NewLine}filePath: {entity.FilePath}");
+    }
+
+    public static async Task<CliResult> EditAsync(ParsedCommand command, CliServices services, CliCommandStore store, CommandResolver resolver)
+    {
+        // --group 语义（VD-13）：edit 的 --group 是“移动到该分组”，不是查找范围；
+        // 所以这里不传 groupToken（<id|name> 按全局名称解析），--group 只在下面按“目标分组”处理。
+        var entity = await resolver.ResolveCommandAsync(command.Arguments[0], groupToken: null);
+
+        if (command.HasValue("name"))
+        {
+            var name = command.GetValue("name")!.Trim();
+            if (name.Length == 0)
+            {
+                throw CliErrors.InvalidValue("命令名称不能为空");
+            }
+            entity.Name = name;
+        }
+
+        if (command.HasValue("description"))
+        {
+            entity.Description = command.GetValue("description")!;
+        }
+
+        if (command.HasValue("file"))
+        {
+            var filePath = command.GetValue("file")!.Trim();
+            EnsureBatchFile(filePath);
+            if (!services.FileExists(filePath))
+            {
+                throw CliErrors.FileNotFound($"文件不存在: {filePath}");
+            }
+            entity.FilePath = Path.GetFullPath(filePath);
+        }
+
+        if (command.GetValue("group") is string groupToken)
+        {
+            entity.GroupId = (await resolver.ResolveGroupAsync(groupToken)).Id;
+        }
+
+        await store.UpdateCommandAsync(entity);
+
+        var group = await store.GetGroupAsync(entity.GroupId);
+        var data = JsonShapes.Command(entity, group?.Name, includeFileExists: true, services.FileExists);
+        return CliResult.Object(data);
+    }
+
+    public static async Task<CliResult> DeleteAsync(ParsedCommand command, CliCommandStore store, CommandResolver resolver)
+    {
+        var entities = await resolver.ResolveCommandsAsync(command.Arguments[0], command.GetValue("group"));
+        var ids = entities.Select(entity => entity.Id).ToArray();
+        await store.DeleteCommandsAsync(ids);
+
+        var data = new JsonObject
+        {
+            ["deleted"] = new JsonArray(ids.Select(id => (JsonNode)JsonValue.Create(id)).ToArray())
+        };
+        return CliResult.Object(data, $"deleted: {string.Join(",", ids)}");
+    }
+
+    public static async Task<CliResult> MoveAsync(ParsedCommand command, CliCommandStore store, CommandResolver resolver)
+    {
+        var entities = await resolver.ResolveCommandsAsync(command.Arguments[0], groupToken: null);
+        var target = await resolver.ResolveGroupAsync(command.GetValue("to")!);
+        var ids = entities.Select(entity => entity.Id).ToArray();
+        await store.MoveCommandsAsync(ids, target.Id);
+
+        var data = new JsonObject
+        {
+            ["moved"] = new JsonArray(ids.Select(id => (JsonNode)JsonValue.Create(id)).ToArray()),
+            ["targetGroupId"] = target.Id
+        };
+        return CliResult.Object(data, $"moved: {string.Join(",", ids)}{Environment.NewLine}targetGroup: {target.Name} ({target.Id})");
+    }
+
+    public static async Task<CliResult> FrequentAsync(ParsedCommand command, CliCommandStore store)
+    {
+        var limit = command.GetValue("limit") is string text ? int.Parse(text, CultureInfo.InvariantCulture) : 10;
+        var commands = await store.GetFrequentlyUsedAsync(limit);
+        await store.FillGroupNamesAsync(commands);
+
+        var items = new JsonArray();
+        foreach (var item in commands)
+        {
+            items.Add(JsonShapes.Command(item, item.GroupName, includeFileExists: false, _ => false));
+        }
+        return CliResult.Items(items);
+    }
+
+    public static async Task<CliResult> ImportAsync(ParsedCommand command, CliServices services, CliCommandStore store, CommandResolver resolver)
+    {
+        var group = await resolver.ResolveGroupAsync(command.GetValue("group")!);
+        var recursive = command.HasFlag("recursive");
+        var allowDuplicates = command.HasFlag("allow-duplicates");
+        var dryRun = command.HasFlag("dry-run");
+        var skipped = new JsonArray();
+        var files = new List<string>();
+
+        foreach (var raw in command.Arguments)
+        {
+            var path = Path.GetFullPath(raw);
+            if (services.DirectoryExists(path))
+            {
+                var option = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+                files.AddRange(Directory.EnumerateFiles(path, "*.bat", option));
+                files.AddRange(Directory.EnumerateFiles(path, "*.cmd", option));
+                continue;
+            }
+
+            if (services.FileExists(path))
+            {
+                var extension = Path.GetExtension(path).ToLowerInvariant();
+                if (extension is ".bat" or ".cmd")
+                {
+                    files.Add(path);
+                }
+                else
+                {
+                    skipped.Add(SkipItem(path, "unsupported-extension"));
+                }
+                continue;
+            }
+
+            throw CliErrors.FileNotFound($"路径不存在: {raw}", "传文件或目录的绝对路径");
+        }
+
+        var candidates = files
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var existing = await store.GetAllCommandsAsync();
+        var existingPaths = existing.Select(item => item.FilePath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var imported = new JsonArray();
+        var sortOrder = await store.CountCommandsInGroupAsync(group.Id);
+
+        foreach (var file in candidates)
+        {
+            if (!allowDuplicates && existingPaths.Contains(file))
+            {
+                skipped.Add(SkipItem(file, "duplicate"));
+                continue;
+            }
+
+            var name = Path.GetFileNameWithoutExtension(file);
+            int? newId = null;
+            if (!dryRun)
+            {
+                var entity = new Command
+                {
+                    Name = name,
+                    Description = string.Empty,
+                    FilePath = file,
+                    GroupId = group.Id,
+                    SortOrder = sortOrder
+                };
+                newId = await store.CreateCommandAsync(entity);
+                existingPaths.Add(file);
+            }
+
+            sortOrder++;
+            imported.Add(new JsonObject
+            {
+                ["id"] = newId.HasValue ? JsonValue.Create(newId.Value) : null,
+                ["name"] = name,
+                ["filePath"] = file
+            });
+        }
+
+        var data = new JsonObject
+        {
+            ["group"] = new JsonObject { ["id"] = group.Id, ["name"] = group.Name },
+            ["imported"] = imported,
+            ["skipped"] = skipped,
+            ["total"] = imported.Count + skipped.Count,
+            ["dryRun"] = dryRun
+        };
+        return CliResult.Object(data,
+            $"imported: {imported.Count}{Environment.NewLine}skipped: {skipped.Count}{Environment.NewLine}group: {group.Name} ({group.Id})");
+    }
+
+    private static JsonObject SkipItem(string filePath, string reason) => new()
+    {
+        ["filePath"] = filePath,
+        ["reason"] = reason
+    };
+
+    // I-7：与 import 的扩展名过滤和 SKILL 的硬性约束保持一致，只登记批处理文件。
+    private static void EnsureBatchFile(string filePath)
+    {
+        var extension = Path.GetExtension(filePath);
+        if (!string.Equals(extension, ".bat", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(extension, ".cmd", StringComparison.OrdinalIgnoreCase))
+        {
+            throw CliErrors.InvalidValue(
+                $"只允许 .bat/.cmd 批处理文件: {filePath}",
+                "只登记 .bat/.cmd 批处理文件；不要为 .exe/.ps1 等创建壳命令");
+        }
+    }
+
+    public static async Task<CliResult> ExportAsync(ParsedCommand command, CliServices services, CliCommandStore store, CommandResolver resolver)
+    {
+        IReadOnlyList<int> scopeGroupIds = Array.Empty<int>();
+        if (command.GetValue("group") is string groupToken)
+        {
+            var group = await resolver.ResolveGroupAsync(groupToken);
+            scopeGroupIds = command.HasFlag("recursive")
+                ? await store.GetGroupSubtreeIdsAsync(group.Id)
+                : new[] { group.Id };
+        }
+
+        var all = await store.GetAllCommandsAsync();
+        var selected = scopeGroupIds.Count == 0
+            ? all
+            : all.Where(item => scopeGroupIds.Contains(item.GroupId)).ToList();
+        await store.FillGroupNamesAsync(selected);
+        selected = selected.OrderBy(item => item.Id).ToList();
+
+        var format = (command.GetValue("format") ?? "json").ToLowerInvariant();
+        var outputPath = command.GetValue("output");
+        var groups = await store.GetGroupsAsync();
+        var referencedGroupIds = selected.Select(item => item.GroupId).Distinct().OrderBy(id => id).ToList();
+
+        if (format == "csv")
+        {
+            var csv = BuildCsv(selected);
+            var target = Path.GetFullPath(outputPath!);
+            try
+            {
+                File.WriteAllText(target, csv, new System.Text.UTF8Encoding(false));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw CliErrors.Internal($"写入导出文件失败: {ex.Message}");
+            }
+
+            var data = new JsonObject { ["path"] = target, ["format"] = "csv", ["count"] = selected.Count };
+            return CliResult.Object(data, $"path: {target}{Environment.NewLine}count: {selected.Count}");
+        }
+
+        var document = BuildJsonDocument(selected, groups, referencedGroupIds);
+        if (outputPath is null)
+        {
+            return new CliResult(document, null, $"schemaVersion: 1{Environment.NewLine}commands: {selected.Count}");
+        }
+
+        var jsonTarget = Path.GetFullPath(outputPath);
+        try
+        {
+            File.WriteAllText(jsonTarget,
+                document.ToJsonString(new System.Text.Json.JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                }),
+                new System.Text.UTF8Encoding(false));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw CliErrors.Internal($"写入导出文件失败: {ex.Message}");
+        }
+
+        var written = new JsonObject { ["path"] = jsonTarget, ["format"] = "json", ["count"] = selected.Count };
+        return CliResult.Object(written, $"path: {jsonTarget}{Environment.NewLine}count: {selected.Count}");
+    }
+
+    private static JsonObject BuildJsonDocument(
+        IReadOnlyList<Command> commands,
+        IReadOnlyList<Group> groups,
+        IReadOnlyList<int> referencedGroupIds)
+    {
+        var groupNodes = new JsonArray();
+        foreach (var id in referencedGroupIds)
+        {
+            var group = groups.FirstOrDefault(item => item.Id == id);
+            if (group is not null)
+            {
+                groupNodes.Add(JsonShapes.GroupNode(group));
+            }
+        }
+
+        var commandNodes = new JsonArray();
+        foreach (var item in commands)
+        {
+            commandNodes.Add(JsonShapes.Command(item, item.GroupName, includeFileExists: false, _ => false));
+        }
+
+        return new JsonObject
+        {
+            ["schemaVersion"] = 1,
+            ["exportedAt"] = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture),
+            ["groups"] = groupNodes,
+            ["commands"] = commandNodes
+        };
+    }
+
+    private static string BuildCsv(IReadOnlyList<Command> commands)
+    {
+        var builder = new System.Text.StringBuilder();
+        builder.Append("id,name,description,filePath,groupId,groupName,sortOrder,executionCount,lastExecutedAt").Append("\r\n");
+        foreach (var item in commands)
+        {
+            builder
+                .Append(item.Id).Append(',')
+                .Append(EscapeCsv(item.Name)).Append(',')
+                .Append(EscapeCsv(item.Description ?? string.Empty)).Append(',')
+                .Append(EscapeCsv(item.FilePath)).Append(',')
+                .Append(item.GroupId).Append(',')
+                .Append(EscapeCsv(item.GroupName)).Append(',')
+                .Append(item.SortOrder).Append(',')
+                .Append(item.ExecutionCount).Append(',')
+                .Append(EscapeCsv(JsonShapes.FormatTimestamp(item.LastExecutedAt) ?? string.Empty))
+                .Append("\r\n");
+        }
+        return builder.ToString();
+    }
+
+    private static string EscapeCsv(string value)
+    {
+        // I-2：CSV 公式注入中和。Excel 会忽略引号直接执行 = + - @ \t 开头的单元格，
+        // 必须先加 ' 前缀让 Excel 当作文本，再按 RFC4180 决定是否加引号。
+        if (value.Length > 0 && value[0] is '=' or '+' or '-' or '@' or '\t')
+        {
+            value = "'" + value;
+        }
+
+        if (value.IndexOfAny(new[] { ',', '"', '\r', '\n' }) < 0)
+        {
+            return value;
+        }
+        return "\"" + value.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
+    }
+
+    internal static (SortOption Sort, SortDirection Direction) ParseSort(ParsedCommand command)
+    {
+        var sort = (command.GetValue("sort") ?? "name").ToLowerInvariant() switch
+        {
+            "last" => SortOption.LastExecutedAt,
+            "count" => SortOption.ExecutionCount,
+            _ => SortOption.Name
+        };
+        var direction = string.Equals(command.GetValue("order"), "desc", StringComparison.OrdinalIgnoreCase)
+            ? SortDirection.Descending
+            : SortDirection.Ascending;
+        return (sort, direction);
+    }
+
+    internal static int ParseLimit(ParsedCommand command)
+        => command.GetValue("limit") is string text ? int.Parse(text, CultureInfo.InvariantCulture) : 0;
+}

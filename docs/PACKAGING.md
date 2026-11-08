@@ -23,6 +23,8 @@
 | **Full** | ~54MB | 包含 .NET 8 运行时，安装后即可运行 |
 | **Lite** | ~7MB | 不包含 .NET 8 运行时，需系统预装 .NET 8 |
 
+两个安装包都会把 `bcm.exe`（CLI）随附到 `{app}\cli`；安装时可选勾选「Add bcm CLI to PATH」（写 HKCU 的 Path，卸载不自动移除）。
+
 ---
 
 ## 环境要求
@@ -75,7 +77,31 @@ dotnet publish -c Release -r win-x64 -p:SelfContained=false -o Packaging/InnoSet
 "C:/Program Files (x86)/Inno Setup 6/ISCC.exe" Packaging/InnoSetup/BashCommandManager-Lite.iss
 ```
 
-### 4. 检查生成的安装包
+### 4. 发布 CLI（bcm.exe）
+
+```bash
+# Full（自包含单文件）
+dotnet publish BashCommandManager.Cli/BashCommandManager.Cli.csproj -c Release -r win-x64 -p:SelfContained=true -p:PublishSingleFile=true -o Packaging/InnoSetup/Full/bin/cli
+
+# Lite（框架依赖单文件）
+dotnet publish BashCommandManager.Cli/BashCommandManager.Cli.csproj -c Release -r win-x64 -p:SelfContained=false -p:PublishSingleFile=true -o Packaging/InnoSetup/Lite/bin/cli
+```
+
+两个 `[Files]` 段已有 `recursesubdirs createallsubdirs`，`cli` 目录会随 `bin\*` 递归复制到 `{app}\cli`，无需改 `.iss`。
+
+验证：
+
+```bash
+./Packaging/InnoSetup/Full/bin/cli/bcm.exe --version   # 1.3.0
+```
+
+可另发一个 zip 给无 GUI 的机器：
+
+```powershell
+Compress-Archive -Path Packaging\InnoSetup\Full\bin\cli\* -DestinationPath bin\Publish\Installer\BashCommandManager-Cli-v1.3.0-win-x64.zip -Force
+```
+
+### 5. 检查生成的安装包
 
 安装包会生成在：
 ```
@@ -121,7 +147,8 @@ gh release create v{版本号} \
 下载地址：https://dotnet.microsoft.com/download/dotnet/8.0
 
 ## 注意事项
-- 数据存储在应用安装目录的 data/app.db 中
+- 数据库位于 `%LOCALAPPDATA%\BashCommandManager\data\app.db`；首次启动会把旧版安装目录下的 `data/app.db` **复制**过去（旧文件保留，可回滚）
+- 可用环境变量 `BASHCOMMANDMANAGER_DB` 指向其他库（便携/回滚），或用 `bcm --db <path>` 单次覆盖
 - 建议安装到非系统目录以避免权限问题"
 ```
 

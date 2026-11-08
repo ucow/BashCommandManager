@@ -1,3 +1,4 @@
+using BashCommandManager.Core.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HandyControl.Controls;
@@ -8,6 +9,8 @@ namespace BashCommandManager.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
+    private readonly ICommandService _commandService;
+
     [ObservableProperty]
     private GroupTreeViewModel _groupTreeViewModel;
 
@@ -22,10 +25,12 @@ public partial class MainViewModel : ObservableObject
 
     public MainViewModel(
         GroupTreeViewModel groupTreeViewModel,
-        CommandListViewModel commandListViewModel)
+        CommandListViewModel commandListViewModel,
+        ICommandService commandService)
     {
         _groupTreeViewModel = groupTreeViewModel;
         _commandListViewModel = commandListViewModel;
+        _commandService = commandService;
 
         _groupTreeViewModel.PropertyChanged += (s, e) =>
         {
@@ -34,6 +39,26 @@ public partial class MainViewModel : ObservableObject
                 LoadCommandsForGroup();
             }
         };
+    }
+
+    /// <summary>按 id 定位命令：选中其分组、填入搜索框并搜索（不自动执行）。</summary>
+    public async Task SelectCommandAsync(int commandId)
+    {
+        var command = await _commandService.GetByIdAsync(commandId);
+        if (command is null)
+        {
+            return;
+        }
+
+        var group = GroupTreeViewModel.FindGroupById(command.GroupId);
+        if (group is not null)
+        {
+            GroupTreeViewModel.SelectedGroup = group;
+        }
+
+        SearchKeyword = command.Name;
+        await SearchAsync();
+        StatusText = $"已定位命令: {command.Name}";
     }
 
     private async void LoadCommandsForGroup()

@@ -177,30 +177,17 @@ public partial class CommandListViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task ExecuteCommandAsync(Command command)
-    {
-        try
-        {
-            _executor.Execute(command, runAsAdmin: false);
-            await _commandService.RecordExecutionAsync(command.Id);
-        }
-        catch (Exception ex)
-        {
-            Growl.Error(new GrowlInfo
-            {
-                Message = $"执行失败: {ex.Message}",
-                WaitTime = 3
-            });
-        }
-    }
+    private Task ExecuteCommandAsync(Command command) => ExecuteCoreAsync(command, runAsAdmin: false);
 
     [RelayCommand]
-    private async Task ExecuteAsAdminAsync(Command command)
+    private Task ExecuteAsAdminAsync(Command command) => ExecuteCoreAsync(command, runAsAdmin: true);
+
+    private async Task ExecuteCoreAsync(Command command, bool runAsAdmin)
     {
+        ExecutionResult result;
         try
         {
-            _executor.Execute(command, runAsAdmin: true);
-            await _commandService.RecordExecutionAsync(command.Id);
+            result = _executor.ExecuteWithResult(command, new ExecutionOptions(RunAsAdmin: runAsAdmin));
         }
         catch (Exception ex)
         {
@@ -209,7 +196,41 @@ public partial class CommandListViewModel : ObservableObject
                 Message = $"执行失败: {ex.Message}",
                 WaitTime = 3
             });
+            return;
         }
+
+        if (result.Notice is not null)
+        {
+            Growl.Warning(new GrowlInfo
+            {
+                Message = result.Notice,
+                WaitTime = 5
+            });
+        }
+
+        if (!result.Started)
+        {
+            if (result.Error is TerminalConfigurationException configurationError)
+            {
+                Growl.Error(new GrowlInfo
+                {
+                    Message = $"执行配置无效: {configurationError.Message}",
+                    WaitTime = 5
+                });
+            }
+            else if (result.Error is not null)
+            {
+                Growl.Error(new GrowlInfo
+                {
+                    Message = $"执行失败: {result.Error.Message}",
+                    WaitTime = 5
+                });
+            }
+
+            return;
+        }
+
+        await _commandService.RecordExecutionAsync(command.Id);
     }
 
     [RelayCommand]

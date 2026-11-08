@@ -1,5 +1,7 @@
 # BashCommandManager
 
+> 当前版本：v1.3.0
+
 <p align="center">
   <img src="Assets/app.ico" width="128" height="128" alt="BashCommandManager Logo">
 </p>
@@ -45,6 +47,12 @@
 - 支持停止正在运行的命令
 - 命令执行状态清晰反馈
 
+### 🖥️ 终端可配置
+- 执行终端可选：命令提示符 (cmd)、Windows PowerShell、PowerShell 7 (pwsh)、Windows Terminal (wt)、自定义程序
+- 参数模板支持占位符：`{file}` `{dir}` `{filePs}` `{dirPs}` `{fileRaw}` `{dirRaw}`
+- 支持「保持窗口打开」与「默认以管理员身份运行」
+- wt / pwsh 未安装时自动降级到 cmd 并提示；自定义程序缺失时拦截保存并给出内联错误
+
 ### 📝 命令管理
 - 添加、编辑、删除命令
 - 自定义命令名称和描述
@@ -62,6 +70,7 @@
 - 支持配置全局快捷键
 - 一键显示/隐藏应用窗口
 - 即使窗口最小化到托盘也能快速唤出
+- 点关闭按钮隐藏到托盘后，快捷键依然有效
 
 ### 🖥️ 系统托盘
 - 最小化到系统托盘
@@ -123,6 +132,22 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 
 发布后的文件将在 `bin/Release/net8.0-windows/win-x64/publish/` 目录中。
 
+### 命令行（bcm）
+
+安装包会把 CLI 放在 `{安装目录}\cli\bcm.exe`，首次安装可勾选「Add bcm CLI to PATH」。
+
+```bash
+bcm --help
+bcm groups list --json
+bcm commands search 备份 --json
+bcm run 备份 --wait
+bcm open --command 7
+```
+
+数据位置：`%LOCALAPPDATA%\BashCommandManager\data\app.db`（旧版安装目录下的 `data\app.db` 会在首次运行 GUI 或 `bcm` 时自动复制过来）。
+
+环境变量：`BASHCOMMANDMANAGER_DB` 可代替 `--db` 指定数据库；`BASHCOMMANDMANAGER_SETTINGS_DIR` 会同时把数据库重定向到 `<dir>\data\app.db`（仅供测试/便携，GUI 不读取该变量，正常使用请用 `BASHCOMMANDMANAGER_DB`）；`BASHCOMMANDMANAGER_GUI` 指定 GUI 路径。
+
 ---
 
 ## 📖 使用说明
@@ -173,6 +198,7 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 ```
 BashCommandManager/
 ├── Assets/                    # 资源文件（图标等）
+├── BashCommandManager.Cli/     # bcm CLI（源码链接 Core 的 WPF-free 子集）
 ├── Controls/                  # 自定义控件
 ├── Core/                      # 核心业务逻辑
 │   ├── Models/               # 数据模型
@@ -230,6 +256,7 @@ BashCommandManager/
 - [x] 批量操作（批量删除、批量移动）
 - [x] 全局快捷键
 - [x] 常用命令
+- [x] 终端可配置（cmd / PowerShell / Windows Terminal / 自定义）
 - [ ] 开机自启动
 - [ ] 主题切换
 

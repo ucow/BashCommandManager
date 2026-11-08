@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <AssemblyName>bcm</AssemblyName>
+    <RootNamespace>BashCommandManager.Cli</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Version>1.3.0</Version>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <SatelliteResourceLanguages>zh-Hans;en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Dapper" Version="2.1.35" />
+    <PackageReference Include="System.Data.SQLite.Core" Version="1.0.115.5" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
+  </ItemGroup>
+
+  <!-- D2.2：只链接 WPF-free 文件；禁止改成 ProjectReference 主工程 -->
+  <ItemGroup Label="SharedSources">
+    <Compile Include="..\Core\Models\Command.cs" Link="Shared\Core\Models\Command.cs" />
+    <Compile Include="..\Core\Models\Group.cs" Link="Shared\Core\Models\Group.cs" />
+    <Compile Include="..\Core\Models\SortOptions.cs" Link="Shared\Core\Models\SortOptions.cs" />
+    <Compile Include="..\Core\Models\TerminalKind.cs" Link="Shared\Core\Models\TerminalKind.cs" />
+    <Compile Include="..\Core\Models\ExecutionSettings.cs" Link="Shared\Core\Models\ExecutionSettings.cs" />
+    <!-- #9 把 TerminalLaunchPlan 独立成文件；TerminalCommandBuilder.Build 的返回类型依赖它，漏链必 CS0246 -->
+    <Compile Include="..\Core\Models\TerminalLaunchPlan.cs" Link="Shared\Core\Models\TerminalLaunchPlan.cs" />
+    <Compile Include="..\Core\Repositories\CommandRepository.cs" Link="Shared\Core\Repositories\CommandRepository.cs" />
+    <Compile Include="..\Core\Repositories\GroupRepository.cs" Link="Shared\Core\Repositories\GroupRepository.cs" />
+    <Compile Include="..\Core\Services\DatabaseService.cs" Link="Shared\Core\Services\DatabaseService.cs" />
+    <Compile Include="..\Core\Services\GroupService.cs" Link="Shared\Core\Services\GroupService.cs" />
+    <Compile Include="..\Core\Services\TerminalCommandBuilder.cs" Link="Shared\Core\Services\TerminalCommandBuilder.cs" />
+    <Compile Include="..\Core\Services\ExecutionResult.cs" Link="Shared\Core\Services\ExecutionResult.cs" />
+    <Compile Include="..\Core\Services\ExecutableLocator.cs" Link="Shared\Core\Services\ExecutableLocator.cs" />
+    <Compile Include="..\Infrastructure\DatabaseInitializer.cs" Link="Shared\Infrastructure\DatabaseInitializer.cs" />
+    <Compile Include="..\Infrastructure\DatabasePathResolver.cs" Link="Shared\Infrastructure\DatabasePathResolver.cs" />
+    <Compile Include="..\Infrastructure\MigrationNotice.cs" Link="Shared\Infrastructure\MigrationNotice.cs" />
+  </ItemGroup>
+</Project>

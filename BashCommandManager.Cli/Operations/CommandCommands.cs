@@ -182,6 +182,103 @@ public static class CommandCommands
         return CliResult.Items(items);
     }
 
+    public static async Task<CliResult> ImportAsync(ParsedCommand command, CliServices services, CliCommandStore store, CommandResolver resolver)
+    {
+        var group = await resolver.ResolveGroupAsync(command.GetValue("group")!);
+        var recursive = command.HasFlag("recursive");
+        var allowDuplicates = command.HasFlag("allow-duplicates");
+        var dryRun = command.HasFlag("dry-run");
+        var skipped = new JsonArray();
+        var files = new List<string>();
+
+        foreach (var raw in command.Arguments)
+        {
+            var path = Path.GetFullPath(raw);
+            if (services.DirectoryExists(path))
+            {
+                var option = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+                files.AddRange(Directory.EnumerateFiles(path, "*.bat", option));
+                files.AddRange(Directory.EnumerateFiles(path, "*.cmd", option));
+                continue;
+            }
+
+            if (services.FileExists(path))
+            {
+                var extension = Path.GetExtension(path).ToLowerInvariant();
+                if (extension is ".bat" or ".cmd")
+                {
+                    files.Add(path);
+                }
+                else
+                {
+                    skipped.Add(SkipItem(path, "unsupported-extension"));
+                }
+                continue;
+            }
+
+            throw CliErrors.FileNotFound($"路径不存在: {raw}", "传文件或目录的绝对路径");
+        }
+
+        var candidates = files
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var existing = await store.GetAllCommandsAsync();
+        var existingPaths = existing.Select(item => item.FilePath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var imported = new JsonArray();
+        var sortOrder = await store.CountCommandsInGroupAsync(group.Id);
+
+        foreach (var file in candidates)
+        {
+            if (!allowDuplicates && existingPaths.Contains(file))
+            {
+                skipped.Add(SkipItem(file, "duplicate"));
+                continue;
+            }
+
+            var name = Path.GetFileNameWithoutExtension(file);
+            int? newId = null;
+            if (!dryRun)
+            {
+                var entity = new Command
+                {
+                    Name = name,
+                    Description = string.Empty,
+                    FilePath = file,
+                    GroupId = group.Id,
+                    SortOrder = sortOrder
+                };
+                newId = await store.CreateCommandAsync(entity);
+                existingPaths.Add(file);
+            }
+
+            sortOrder++;
+            imported.Add(new JsonObject
+            {
+                ["id"] = newId.HasValue ? JsonValue.Create(newId.Value) : null,
+                ["name"] = name,
+                ["filePath"] = file
+            });
+        }
+
+        var data = new JsonObject
+        {
+            ["group"] = new JsonObject { ["id"] = group.Id, ["name"] = group.Name },
+            ["imported"] = imported,
+            ["skipped"] = skipped,
+            ["total"] = imported.Count + skipped.Count,
+            ["dryRun"] = dryRun
+        };
+        return CliResult.Object(data,
+            $"imported: {imported.Count}{Environment.NewLine}skipped: {skipped.Count}{Environment.NewLine}group: {group.Name} ({group.Id})");
+    }
+
+    private static JsonObject SkipItem(string filePath, string reason) => new()
+    {
+        ["filePath"] = filePath,
+        ["reason"] = reason
+    };
+
     internal static (SortOption Sort, SortDirection Direction) ParseSort(ParsedCommand command)
     {
         var sort = (command.GetValue("sort") ?? "name").ToLowerInvariant() switch

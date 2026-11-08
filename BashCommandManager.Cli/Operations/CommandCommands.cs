@@ -153,6 +153,35 @@ public static class CommandCommands
         return CliResult.Object(data, $"deleted: {string.Join(",", ids)}");
     }
 
+    public static async Task<CliResult> MoveAsync(ParsedCommand command, CliCommandStore store, CommandResolver resolver)
+    {
+        var entities = await resolver.ResolveCommandsAsync(command.Arguments[0], groupToken: null);
+        var target = await resolver.ResolveGroupAsync(command.GetValue("to")!);
+        var ids = entities.Select(entity => entity.Id).ToArray();
+        await store.MoveCommandsAsync(ids, target.Id);
+
+        var data = new JsonObject
+        {
+            ["moved"] = new JsonArray(ids.Select(id => (JsonNode)JsonValue.Create(id)).ToArray()),
+            ["targetGroupId"] = target.Id
+        };
+        return CliResult.Object(data, $"moved: {string.Join(",", ids)}{Environment.NewLine}targetGroup: {target.Name} ({target.Id})");
+    }
+
+    public static async Task<CliResult> FrequentAsync(ParsedCommand command, CliCommandStore store)
+    {
+        var limit = command.GetValue("limit") is string text ? int.Parse(text, CultureInfo.InvariantCulture) : 10;
+        var commands = await store.GetFrequentlyUsedAsync(limit);
+        await store.FillGroupNamesAsync(commands);
+
+        var items = new JsonArray();
+        foreach (var item in commands)
+        {
+            items.Add(JsonShapes.Command(item, item.GroupName, includeFileExists: false, _ => false));
+        }
+        return CliResult.Items(items);
+    }
+
     internal static (SortOption Sort, SortDirection Direction) ParseSort(ParsedCommand command)
     {
         var sort = (command.GetValue("sort") ?? "name").ToLowerInvariant() switch

@@ -323,4 +323,74 @@ public class CommandCommandsTests
 
         Assert.Equal(id, result.Data!["deleted"]!.AsArray()[0]!.GetValue<int>());
     }
+
+    [Fact]
+    public async Task Move_reports_moved_ids_and_target_group()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        var ops = await arranged.Store.CreateGroupAsync("运维", 1);
+        var target = await arranged.Store.CreateGroupAsync("生产运维", 1);
+        var first = await arranged.Store.CreateCommandAsync(new Command { Name = "a", FilePath = @"D:\a.bat", GroupId = ops });
+        var second = await arranged.Store.CreateCommandAsync(new Command { Name = "b", FilePath = @"D:\b.bat", GroupId = ops });
+
+        var result = await CommandCommands.MoveAsync(Parse("commands", "move", $"{first},{second}", "--to", "生产运维"), arranged.Store, arranged.Resolver);
+
+        Assert.Equal(new[] { first, second }, result.Data!["moved"]!.AsArray().Select(node => node!.GetValue<int>()).ToArray());
+        Assert.Equal(target, result.Data!["targetGroupId"]!.GetValue<int>());
+        Assert.Equal(target, (await arranged.Store.GetCommandAsync(second))!.GroupId);
+    }
+
+    [Fact]
+    public async Task Move_to_missing_group_is_not_found()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        var id = await arranged.Store.CreateCommandAsync(new Command { Name = "a", FilePath = @"D:\a.bat", GroupId = 1 });
+
+        var error = await Assert.ThrowsAsync<CliFailureException>(() =>
+            CommandCommands.MoveAsync(Parse("commands", "move", id.ToString(), "--to", "缺失"), arranged.Store, arranged.Resolver));
+
+        Assert.Equal("E_NOT_FOUND", error.Error.Code);
+        Assert.Equal(2, error.Error.ExitCode);
+    }
+
+    [Fact]
+    public async Task Frequent_returns_executed_commands_desc_with_default_limit_10()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        var ops = await arranged.Store.CreateGroupAsync("运维", 1);
+        var first = await arranged.Store.CreateCommandAsync(new Command { Name = "备份", FilePath = @"D:\a.bat", GroupId = ops });
+        var second = await arranged.Store.CreateCommandAsync(new Command { Name = "发布", FilePath = @"D:\b.bat", GroupId = ops });
+        await arranged.Store.CreateCommandAsync(new Command { Name = "未用过", FilePath = @"D:\c.bat", GroupId = ops });
+        await arranged.Store.RecordExecutionAsync(first);
+        await arranged.Store.RecordExecutionAsync(second);
+        await arranged.Store.RecordExecutionAsync(second);
+
+        var result = await CommandCommands.FrequentAsync(Parse("commands", "frequent"), arranged.Store);
+
+        var names = result.Data!.AsArray().Select(node => node!["name"]!.GetValue<string>()).ToArray();
+        Assert.Equal(new[] { "发布", "备份" }, names);
+        Assert.Equal("运维", result.Data![0]!["groupName"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Frequent_respects_limit()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        var first = await arranged.Store.CreateCommandAsync(new Command { Name = "a", FilePath = @"D:\a.bat", GroupId = 1 });
+        var second = await arranged.Store.CreateCommandAsync(new Command { Name = "b", FilePath = @"D:\b.bat", GroupId = 1 });
+        await arranged.Store.RecordExecutionAsync(first);
+        await arranged.Store.RecordExecutionAsync(second);
+
+        var result = await CommandCommands.FrequentAsync(Parse("commands", "frequent", "--limit", "1"), arranged.Store);
+
+        Assert.Single(result.Data!.AsArray());
+    }
 }

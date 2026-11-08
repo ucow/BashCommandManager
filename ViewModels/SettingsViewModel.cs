@@ -83,8 +83,8 @@ public partial class SettingsViewModel : ObservableObject
         // 如果启用了快捷键，更新注册
         if (HotkeySettings.Enabled)
         {
-            var registered = _hotkeyService.UpdateHotkey(HotkeySettings.Key, HotkeySettings.Modifiers);
-            if (!registered)
+            var result = _hotkeyService.UpdateHotkey(HotkeySettings.Key, HotkeySettings.Modifiers);
+            if (!result.IsSuccess)
             {
                 Growl.Warning(new GrowlInfo
                 {

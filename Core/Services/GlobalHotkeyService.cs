@@ -1,151 +1,163 @@
+using BashCommandManager.Core.Models;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
-using System.Windows.Interop;
+using System.Windows.Threading;
 
 namespace BashCommandManager.Core.Services;
 
-public interface IGlobalHotkeyService
+public sealed class GlobalHotkeyService : IGlobalHotkeyService
 {
-    bool Register(Window window, Key key, ModifierKeys modifiers);
-    void Unregister();
-    bool UpdateHotkey(Key key, ModifierKeys modifiers);
-    event EventHandler? HotkeyPressed;
-}
+    private readonly Dispatcher _dispatcher;
+    private readonly HotkeyMessageWindow _host = new();
+    private readonly HotkeyIdAllocator _idAllocator = new();
 
-public class GlobalHotkeyService : IGlobalHotkeyService, IDisposable
-{
-    // Win32 API 定义
-    [DllImport("user32.dll")]
-    private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
-
-    [DllImport("user32.dll")]
-    private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
-
-    private const int WM_HOTKEY = 0x0312;
-    private const int HOTKEY_ID = 9000;
-
-    // Modifier keys
-    private const uint MOD_NONE = 0x0000;
-    private const uint MOD_ALT = 0x0001;
-    private const uint MOD_CONTROL = 0x0002;
-    private const uint MOD_SHIFT = 0x0004;
-    private const uint MOD_WIN = 0x0008;
-
-    private Window? _window;
-    private HwndSource? _source;
-    private Key _currentKey;
-    private ModifierKeys _currentModifiers;
-    private bool _isRegistered;
+    private Key _currentKey = Key.None;
+    private ModifierKeys _currentModifiers = ModifierKeys.None;
+    private int _currentId;
 
     public event EventHandler? HotkeyPressed;
 
-    public bool Register(Window window, Key key, ModifierKeys modifiers)
+    public GlobalHotkeyService()
     {
-        _window = window;
+        // RegisterHotKey 线程亲和：必须在有消息泵的 UI 线程创建与调用。
+        _dispatcher = Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
+        _host.HotkeyIdReceived += OnHotkeyIdReceived;
+    }
+
+    public bool IsRegistered => _currentId != 0;
+
+    public HotkeyRegistrationResult TryRegister(Key key, ModifierKeys modifiers)
+    {
+        _dispatcher.VerifyAccess();
+
+        if (key == Key.None || modifiers == ModifierKeys.None)
+        {
+            return HotkeyRegistrationResult.InvalidCombination(key, modifiers);
+        }
+
+        if (!_host.EnsureCreated())
+        {
+            return HotkeyRegistrationResult.HostUnavailable(key, modifiers);
+        }
+
+        // 先注册新组合，成功后才注销旧 id：改键失败时用户不会变成「没有热键」。
+        var newId = _idAllocator.Next();
+        if (!RegisterNative(_host.Handle, newId, key, modifiers, out var win32Error))
+        {
+            return HotkeyRegistrationResult.FromRegisterError(win32Error, key, modifiers);
+        }
+
+        UnregisterNative(_host.Handle, _currentId);
+
+        _currentId = newId;
         _currentKey = key;
         _currentModifiers = modifiers;
-
-        var helper = new WindowInteropHelper(window);
-        var handle = helper.Handle;
-
-        // 确保窗口句柄已创建
-        if (handle == IntPtr.Zero)
-        {
-            // 等待窗口加载完成
-            window.SourceInitialized += Window_SourceInitialized;
-            return false;
-        }
-
-        return RegisterHotkeyInternal(handle);
+        return HotkeyRegistrationResult.Success(key, modifiers);
     }
 
-    private void Window_SourceInitialized(object? sender, EventArgs e)
+    public HotkeyRegistrationResult UpdateHotkey(Key key, ModifierKeys modifiers)
     {
-        if (_window != null)
+        _dispatcher.VerifyAccess();
+
+        // 同一组合且已注册：直接成功，避免自冲突（1409）。
+        if (IsRegistered && key == _currentKey && modifiers == _currentModifiers)
         {
-            _window.SourceInitialized -= Window_SourceInitialized;
-            var helper = new WindowInteropHelper(_window);
-            RegisterHotkeyInternal(helper.Handle);
+            return HotkeyRegistrationResult.Success(key, modifiers);
         }
+
+        return TryRegister(key, modifiers);
     }
 
-    private bool RegisterHotkeyInternal(IntPtr handle)
+    public void Suspend()
     {
-        if (_isRegistered)
+        _dispatcher.VerifyAccess();
+
+        if (_currentId == 0)
         {
-            UnregisterHotKey(handle, HOTKEY_ID);
+            return;
         }
 
-        var vk = (uint)KeyInterop.VirtualKeyFromKey(_currentKey);
-        var mod = ConvertModifiers(_currentModifiers);
+        UnregisterNative(_host.Handle, _currentId);
+        _currentId = 0;
+    }
 
-        _isRegistered = RegisterHotKey(handle, HOTKEY_ID, mod, vk);
+    public HotkeyRegistrationResult Resume()
+    {
+        _dispatcher.VerifyAccess();
 
-        if (_isRegistered)
+        if (_currentKey == Key.None || _currentModifiers == ModifierKeys.None)
         {
-            _source = HwndSource.FromHwnd(handle);
-            _source?.AddHook(HwndHook);
+            return HotkeyRegistrationResult.NotRegistered(_currentKey, _currentModifiers);
         }
 
-        return _isRegistered;
+        if (_currentId != 0)
+        {
+            return HotkeyRegistrationResult.Success(_currentKey, _currentModifiers);
+        }
+
+        return TryRegister(_currentKey, _currentModifiers);
     }
 
     public void Unregister()
     {
-        if (_window != null && _isRegistered)
-        {
-            var helper = new WindowInteropHelper(_window);
-            UnregisterHotKey(helper.Handle, HOTKEY_ID);
-            _isRegistered = false;
-        }
+        _dispatcher.VerifyAccess();
 
-        if (_source != null)
-        {
-            _source.RemoveHook(HwndHook);
-            _source = null;
-        }
+        UnregisterNative(_host.Handle, _currentId);
+        _currentId = 0;
+        _currentKey = Key.None;
+        _currentModifiers = ModifierKeys.None;
     }
 
-    public bool UpdateHotkey(Key key, ModifierKeys modifiers)
+    private void OnHotkeyIdReceived(object? sender, int id)
     {
-        if (_window == null) return false;
-
-        Unregister();
-
-        _currentKey = key;
-        _currentModifiers = modifiers;
-
-        var helper = new WindowInteropHelper(_window);
-        return RegisterHotkeyInternal(helper.Handle);
-    }
-
-    private IntPtr HwndHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
-    {
-        if (msg == WM_HOTKEY && wParam.ToInt32() == HOTKEY_ID)
+        if (!_dispatcher.CheckAccess())
         {
-            HotkeyPressed?.Invoke(this, EventArgs.Empty);
-            handled = true;
+            _dispatcher.BeginInvoke(new Action(() => OnHotkeyIdReceived(sender, id)));
+            return;
         }
-        return IntPtr.Zero;
+
+        // 只认当前注册的 id：改键/挂起期间漏进来的旧 id 消息必须忽略。
+        if (_currentId == 0 || id != _currentId)
+        {
+            return;
+        }
+
+        HotkeyPressed?.Invoke(this, EventArgs.Empty);
     }
 
-    private static uint ConvertModifiers(ModifierKeys modifiers)
+    private static bool RegisterNative(IntPtr hwnd, int id, Key key, ModifierKeys modifiers, out int win32Error)
     {
-        uint result = MOD_NONE;
-        if ((modifiers & ModifierKeys.Alt) == ModifierKeys.Alt)
-            result |= MOD_ALT;
-        if ((modifiers & ModifierKeys.Control) == ModifierKeys.Control)
-            result |= MOD_CONTROL;
-        if ((modifiers & ModifierKeys.Shift) == ModifierKeys.Shift)
-            result |= MOD_SHIFT;
-        if ((modifiers & ModifierKeys.Windows) == ModifierKeys.Windows)
-            result |= MOD_WIN;
-        return result;
+        var registered = HotkeyNativeMethods.RegisterHotKey(
+            hwnd,
+            id,
+            HotkeyNativeMethods.ToWin32Modifiers(modifiers),
+            (uint)HotkeyNativeMethods.ToVirtualKey(key));
+
+        win32Error = registered ? 0 : Marshal.GetLastWin32Error();
+        return registered;
+    }
+
+    private static void UnregisterNative(IntPtr hwnd, int id)
+    {
+        if (id == 0 || hwnd == IntPtr.Zero)
+        {
+            return;
+        }
+
+        if (HotkeyNativeMethods.UnregisterHotKey(hwnd, id))
+        {
+            return;
+        }
+
+        // 注销失败只记日志，但仍清空内部状态，避免僵尸注册挡住后续尝试。
+        Debug.WriteLine($"注销热键失败: id={id}, hwnd=0x{hwnd.ToInt64():X}, error={Marshal.GetLastWin32Error()}");
     }
 
     public void Dispose()
     {
         Unregister();
+        _host.Dispose();
     }
 }

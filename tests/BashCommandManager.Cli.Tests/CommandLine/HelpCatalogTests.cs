@@ -42,6 +42,19 @@ public class HelpCatalogTests
         Assert.Contains("--version", help);
     }
 
+    // I-4：SETTINGS_DIR 会同时重定向数据库，必须在 --help 里可发现。
+    [Fact]
+    public void Global_help_documents_environment_variables()
+    {
+        var help = HelpCatalog.Global();
+
+        Assert.Contains("环境变量", help);
+        Assert.Contains("BASHCOMMANDMANAGER_DB", help);
+        Assert.Contains("BASHCOMMANDMANAGER_SETTINGS_DIR", help);
+        Assert.Contains("BASHCOMMANDMANAGER_GUI", help);
+        Assert.Contains("data\\app.db", help);
+    }
+
     [Theory]
     [InlineData("groups.list")]
     [InlineData("groups.create")]

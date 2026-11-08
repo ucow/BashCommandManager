@@ -42,6 +42,8 @@ Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*','
 - **始终加 `--json`**：成功 JSON 在 stdout，失败 JSON 在 stderr。
 - 检查退出码：`0` 成功、`1` 参数/配置错误、`2` 未找到、`3` 运行时失败。
 - 只在用户明确指定库文件时用 `--db <path>`；否则用默认库。
+- `BASHCOMMANDMANAGER_DB` 等价于 `--db`；`BASHCOMMANDMANAGER_SETTINGS_DIR` 会同时把数据库改到 `<dir>\data\app.db`（仅供测试/便携，GUI 不读该变量，CLI 与 GUI 可能因此指向不同库）。
+- `BASHCOMMANDMANAGER_GUI` 等价于 `--gui`。
 - 用 `meta.dbPath` 确认「同一个库」；`meta.created=true` 表示这次运行刚建了空库。
 - 删除类命令必须显式 `--force`，否则退出 1（`E_CONFIRM_REQUIRED`）。
 - 名称不唯一会返回 `E_AMBIGUOUS` 与候选 id，改用 id 重试，不要猜。
@@ -140,4 +142,4 @@ Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*','
 | `E_CONFIRM_REQUIRED` | 先向用户确认，再加 `--force` |
 | `E_CONFIG_KEY`（`run`） | `Execution` 参数模板非法或自定义程序路径为空；`bcm config get --json` 检查配置 |
 | 改完快捷键无效 | `settings.json` 改动需重启 GUI 才生效（运行中的 GUI 不会重读） |
-| 数据看着是旧库 | 核对 `meta.dbPath`；旧 `{app}\data\app.db` 只在首次启动时被复制一次 |
+| 数据看着是旧库 | 核对 `meta.dbPath`；旧 `{app}\data\app.db` 只在首次运行（GUI 或 `bcm`）时被复制一次 |

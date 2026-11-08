@@ -29,6 +29,13 @@ public static class HelpCatalog
         builder.AppendLine("  --help                      显示帮助（可与任意命令组合）");
         builder.AppendLine("  --version                   显示版本");
         builder.AppendLine();
+        builder.AppendLine("环境变量:");
+        builder.AppendLine("  BASHCOMMANDMANAGER_DB        指定数据库路径（等价于 --db，--db 优先）");
+        builder.AppendLine("  BASHCOMMANDMANAGER_SETTINGS_DIR");
+        builder.AppendLine("                               同时改变 settings.json 与数据库位置：数据库变为 <dir>\\data\\app.db；");
+        builder.AppendLine("                               仅供测试/便携，GUI 不读该变量；正常使用请用 BASHCOMMANDMANAGER_DB");
+        builder.AppendLine("  BASHCOMMANDMANAGER_GUI       指定 BashCommandManager.exe 路径（等价于 --gui）");
+        builder.AppendLine();
         builder.AppendLine("退出码:");
         builder.AppendLine("  0 成功  1 参数/用法错误  2 未找到  3 运行时失败");
         builder.AppendLine();

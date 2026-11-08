@@ -144,7 +144,9 @@ bcm run 备份 --wait
 bcm open --command 7
 ```
 
-数据位置：`%LOCALAPPDATA%\BashCommandManager\data\app.db`（旧版安装目录下的 `data\app.db` 会在首次启动时自动复制过来）。
+数据位置：`%LOCALAPPDATA%\BashCommandManager\data\app.db`（旧版安装目录下的 `data\app.db` 会在首次运行 GUI 或 `bcm` 时自动复制过来）。
+
+环境变量：`BASHCOMMANDMANAGER_DB` 可代替 `--db` 指定数据库；`BASHCOMMANDMANAGER_SETTINGS_DIR` 会同时把数据库重定向到 `<dir>\data\app.db`（仅供测试/便携，GUI 不读取该变量，正常使用请用 `BASHCOMMANDMANAGER_DB`）；`BASHCOMMANDMANAGER_GUI` 指定 GUI 路径。
 
 ---
 

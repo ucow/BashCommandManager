@@ -143,4 +143,94 @@ public class GroupCommandsTests
         Assert.Equal("E_NOT_FOUND", error.Error.Code);
         Assert.Equal(2, error.Error.ExitCode);
     }
+
+    [Fact]
+    public async Task Rename_updates_name_and_keeps_siblings_unique()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        var ops = await arranged.Store.CreateGroupAsync("运维", 1);
+        await arranged.Store.CreateGroupAsync("生产运维", 1);
+
+        var renamed = await GroupCommands.RenameAsync(Parse("groups", "rename", ops.ToString(), "--name", "生产运维2"), arranged.Store, arranged.Resolver);
+        var error = await Assert.ThrowsAsync<CliFailureException>(() =>
+            GroupCommands.RenameAsync(Parse("groups", "rename", ops.ToString(), "--name", "生产运维"), arranged.Store, arranged.Resolver));
+
+        Assert.Equal("生产运维2", renamed.Data!["name"]!.GetValue<string>());
+        Assert.Equal("E_INVALID_VALUE", error.Error.Code);
+    }
+
+    [Fact]
+    public async Task Rename_accepts_group_path()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        var ops = await arranged.Store.CreateGroupAsync("运维", 1);
+        var prod = await arranged.Store.CreateGroupAsync("生产", ops);
+
+        var result = await GroupCommands.RenameAsync(Parse("groups", "rename", "运维/生产", "--name", "生产环境"), arranged.Store, arranged.Resolver);
+
+        Assert.Equal(prod, result.Data!["id"]!.GetValue<int>());
+        Assert.Equal("生产环境", result.Data!["name"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Delete_reports_subtree_group_and_command_ids()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        var ops = await arranged.Store.CreateGroupAsync("运维", 1);
+        var prod = await arranged.Store.CreateGroupAsync("生产", ops);
+        var first = await arranged.Store.CreateCommandAsync(new Command { Name = "备份", FilePath = @"D:\a.bat", GroupId = ops });
+        var second = await arranged.Store.CreateCommandAsync(new Command { Name = "发布", FilePath = @"D:\b.bat", GroupId = prod });
+
+        var result = await GroupCommands.DeleteAsync(Parse("groups", "delete", "运维", "--force"), arranged.Store, arranged.Resolver);
+
+        var data = result.Data!.AsObject();
+        var groupIds = data["deletedGroupIds"]!.AsArray().Select(node => node!.GetValue<int>()).OrderBy(id => id).ToArray();
+        var commandIds = data["deletedCommandIds"]!.AsArray().Select(node => node!.GetValue<int>()).OrderBy(id => id).ToArray();
+        Assert.Equal(new[] { ops, prod }.OrderBy(id => id), groupIds);
+        Assert.Equal(new[] { first, second }.OrderBy(id => id), commandIds);
+        Assert.Null(await arranged.Store.GetGroupAsync(prod));
+        Assert.Null(await arranged.Store.GetCommandAsync(second));
+    }
+
+    [Fact]
+    public async Task Delete_refuses_root_group()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+
+        var error = await Assert.ThrowsAsync<CliFailureException>(() =>
+            GroupCommands.DeleteAsync(Parse("groups", "delete", "1", "--force"), arranged.Store, arranged.Resolver));
+
+        Assert.Equal("E_ROOT_GROUP", error.Error.Code);
+        Assert.Equal(1, error.Error.ExitCode);
+    }
+
+    [Fact]
+    public void Delete_requires_force_at_parser_level()
+    {
+        var error = Assert.Throws<CliFailureException>(() => Parse("groups", "delete", "运维"));
+
+        Assert.Equal("E_CONFIRM_REQUIRED", error.Error.Code);
+    }
+
+    [Fact]
+    public async Task Delete_unknown_group_is_not_found()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+
+        var error = await Assert.ThrowsAsync<CliFailureException>(() =>
+            GroupCommands.DeleteAsync(Parse("groups", "delete", "缺失", "--force"), arranged.Store, arranged.Resolver));
+
+        Assert.Equal("E_NOT_FOUND", error.Error.Code);
+        Assert.Equal(2, error.Error.ExitCode);
+    }
 }

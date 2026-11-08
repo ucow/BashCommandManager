@@ -1,5 +1,9 @@
 # Worktrees
 .worktrees/
+.claude/worktrees/
+
+# Agent / tool runtime logs
+logs/
 
 # .NET
 bin/

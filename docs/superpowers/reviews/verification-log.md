@@ -119,7 +119,64 @@ bcm --help             → 正常列出 19 条命令与全局选项
 `%LOCALAPPDATA%\BashCommandManager\settings.json` 与 `D:\Program Files\BashCommandManager\data\app.db`
 的 SHA-256 与修改时间均未变化；`%LOCALAPPDATA%\BashCommandManager\data\app.db` 未生成。
 
-（T12–T29 待填充）
+（T21–T29 待填充）
+
+**阶段 4（T21–T29）提交**：`8907dc1`（run --wait/配置错误/干跑 verb 修复）、`7edcae3`（config get）、`64fc629`（config set）、`1c083a2`（open）、`d66104f`（GUI `--command` + 单实例参数转发）、`b5b05e2`（8 条端到端冒烟）、`ed1fb4a`（SKILL.md）、`dabce5f`（安装包 PATH + 版本 1.3.0）、`066446d`（文档）。
+
+**主代理复验（最终基线）**：
+
+```
+dotnet build BashCommandManager.csproj -c Release --no-incremental          → 0 warning / 0 error
+dotnet build BashCommandManager.Cli\...\Cli.csproj -c Release --no-incremental → 0 warning / 0 error
+dotnet test tests\BashCommandManager.Tests      → 已通过! 失败: 0，通过: 167，总计: 167
+dotnet test tests\BashCommandManager.Cli.Tests  → 已通过! 失败: 0，通过: 302，总计: 302
+```
+
+**CLI 端到端（主代理手工，临时库）**：
+
+```
+bcm groups list/create（多级 parentId 正确）
+bcm commands add --file "...\工作 目录\备份.bat"
+bcm run 备份 --dry-run --json   → {"dryRun":true,"fileName":"cmd.exe","arguments":"/k \"…工作 目录\\备份.bat\""}
+bcm run 备份 --wait --json      → {"started":true,"waited":true,"exitCode":0}
+bcm run nope                    → exit 2  E_NOT_FOUND
+bcm groups delete 根分组 --force → exit 1  E_ROOT_GROUP
+bcm open --gui <gui> --command 1 → exit 0，GUI 启动且仅 1 个实例
+再次启动 GUI（--command）        → 第二个进程立即退出，实例数仍为 1（单实例 + 参数转发）
+```
+
+**打包产物**：
+
+| 产物 | 大小 |
+|---|---|
+| `BashCommandManager-v1.3.0-Full-Setup.exe` | 75.4 MB |
+| `BashCommandManager-v1.3.0-Lite-Setup.exe` | 7.2 MB |
+| `BashCommandManager-Cli-v1.3.0-win-x64.zip` | 29.5 MB |
+| `Full\bin\cli\bcm.exe`（自包含） | 66.95 MB，`--version` = 1.3.0 |
+| `Lite\bin\cli\bcm.exe`（框架依赖） | 2.74 MB，`--version` = 1.3.0 |
+
+### 发布前代码评审与修复
+
+| 评审 | 结论 | 阻断项 | 处理 |
+|---|---|---|---|
+| GUI + 共享基础设施 | 需修复后发布 | B-1 迁移候选路径 / B-2 降级模板 | `580c4d9`、`85aac55` 已修，另有 `62ae78f`（设置页/快捷键）、`f771ecb`（.iss PATH）、`9ddafd4`（I-5 测试） |
+| CLI | 阻断 | B-1 同迁移路径 / B-2 `run --wait` 未强制 cmd | `a622bd5`、`735e326`、`7dcdd30`、`149f5dc`、`a68f282`、`49e9202` 已修 |
+
+**修复后最终基线**：GUI 测试 **184/184**、CLI 测试 **334/334**，两侧 `dotnet build -c Release` 均 0 warning / 0 error。
+
+**模拟安装布局迁移实测**（`{sim}\cli\bcm.exe` + `{sim}\data\app.db` + 临时 `SETTINGS_DIR`）：
+
+```
+legacy created: True
+before canonical exists: False
+bcm groups list --json → {"created":false, "count":1, "commandCount":1}
+bcm commands list --json → 旧库命令可见
+after canonical exists: True；legacy still exists: True
+```
+
+证明：即使升级后**先运行 CLI**，也会把 GUI 旧库迁移到新位置，不会创建空库。
+
+**安装包**：Full / Lite 均重新编译成功（`Successful compile`），`cli\bcm.exe` 已在发布目录中随 `[Files]` 递归打入 `{app}\cli`。本机会话非管理员，未执行真实安装（会触发 UAC 弹窗），安装/卸载行为留待人工或 CI 验证。
 
 ---
 

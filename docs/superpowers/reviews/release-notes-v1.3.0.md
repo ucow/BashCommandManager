@@ -6,6 +6,7 @@
   - 19 条子命令覆盖分组、命令、执行、配置与 GUI 唤起：`groups list/create/rename/delete`、`commands list/search/show/add/edit/delete/move/import/export/frequent`、`run`、`config get/set`、`open`、`--version`
   - 统一 `--json` 输出信封 `{ok,data,meta}`，错误 JSON 写 stderr；退出码 `0` 成功 / `1` 参数错误 / `2` 未找到 / `3` 运行时失败
   - 与 GUI 共享同一数据库，支持 `--db` 与 `BASHCOMMANDMANAGER_DB` 覆盖；非交互、UTF-8、可由脚本与 AI 代理调用
+  - `run --wait` 固定用 `cmd.exe /c` 执行并真实返回退出码；`commands add/edit` 只接受 `.bat/.cmd`；CSV 导出已中和公式注入
   - 附带 `.claude/skills/bash-command-manager/SKILL.md`，让 AI 代理可以按安全约束使用 CLI
 
 - **批处理执行终端可配置**（Issue #9）

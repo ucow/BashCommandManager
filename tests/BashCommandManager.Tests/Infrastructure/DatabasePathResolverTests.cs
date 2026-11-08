@@ -94,4 +94,110 @@ public class DatabasePathResolverTests
         Assert.DoesNotContain("BashCommandManager.db", resolution.DatabasePath, StringComparison.OrdinalIgnoreCase);
         Assert.EndsWith(@"data\app.db", resolution.DatabasePath, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void Legacy_candidates_put_base_data_directory_before_parent()
+    {
+        var candidates = DatabasePathResolver.GetLegacyCandidatePaths(LegacyDir);
+
+        Assert.Equal(2, candidates.Count);
+        Assert.Equal(Path.Combine(LegacyDir, "data", "app.db"), candidates[0]);
+        Assert.Equal(Path.GetFullPath(Path.Combine(LegacyDir, "..", "data", "app.db")), candidates[1]);
+    }
+
+    [Fact]
+    public void Cli_base_resolves_gui_legacy_database_in_parent()
+    {
+        var cliBase = Path.Combine(LegacyDir, "cli");
+        var guiLegacy = Path.Combine(LegacyDir, "data", "app.db");
+
+        var resolution = DatabasePathResolver.Resolve(
+            null,
+            null,
+            path => path == guiLegacy,
+            SettingsDir,
+            baseDirectory: cliBase);
+
+        Assert.Equal(Canonical, resolution.DatabasePath);
+        Assert.Equal(guiLegacy, resolution.LegacyPath);
+        Assert.True(resolution.RequiresMigration);
+    }
+
+    [Fact]
+    public void Gui_base_resolves_its_own_legacy_database()
+    {
+        var guiLegacy = Path.Combine(LegacyDir, "data", "app.db");
+
+        var resolution = DatabasePathResolver.Resolve(
+            null,
+            null,
+            path => path == guiLegacy,
+            SettingsDir,
+            baseDirectory: LegacyDir);
+
+        Assert.Equal(guiLegacy, resolution.LegacyPath);
+        Assert.True(resolution.RequiresMigration);
+    }
+
+    [Fact]
+    public void Base_candidate_wins_when_both_base_and_parent_legacy_exist()
+    {
+        var guiLegacy = Path.Combine(LegacyDir, "data", "app.db");
+        var parentLegacy = Path.GetFullPath(Path.Combine(LegacyDir, "..", "data", "app.db"));
+
+        var resolution = DatabasePathResolver.Resolve(
+            null,
+            null,
+            path => path == guiLegacy || path == parentLegacy,
+            SettingsDir,
+            baseDirectory: LegacyDir);
+
+        Assert.Equal(guiLegacy, resolution.LegacyPath);
+    }
+
+    [Fact]
+    public void Cli_in_subdirectory_migrates_gui_legacy_database_to_canonical()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "bcm-resolver-" + Guid.NewGuid().ToString("N"));
+        var cliBase = Path.Combine(root, "cli");
+        var legacyPath = Path.Combine(root, "data", "app.db");
+        var settingsDir = Path.Combine(root, "settings");
+        var canonicalPath = Path.Combine(settingsDir, "data", "app.db");
+
+        Directory.CreateDirectory(cliBase);
+        Directory.CreateDirectory(Path.GetDirectoryName(legacyPath)!);
+        File.WriteAllText(legacyPath, "legacy-data");
+
+        try
+        {
+            var resolution = DatabasePathResolver.Resolve(
+                null,
+                null,
+                File.Exists,
+                settingsDir,
+                baseDirectory: cliBase);
+
+            Assert.Equal(canonicalPath, resolution.DatabasePath);
+            Assert.Equal(Path.GetFullPath(legacyPath), resolution.LegacyPath);
+            Assert.True(resolution.RequiresMigration);
+
+            var prepared = DatabaseMigrator.Prepare(resolution, (source, target) => File.Copy(source, target));
+
+            Assert.True(prepared.Migrated);
+            Assert.Null(prepared.Warning);
+            Assert.Equal(canonicalPath, prepared.DatabasePath);
+            Assert.Equal("legacy-data", File.ReadAllText(canonicalPath));
+            Assert.True(File.Exists(legacyPath));
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(root, recursive: true);
+            }
+            catch (IOException)
+            {
+            }
+        }
+    }
 }

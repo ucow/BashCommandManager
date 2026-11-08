@@ -6,9 +6,15 @@ namespace BashCommandManager.Infrastructure;
 /// <summary>数据库初始化：解析路径 → 必要时迁移 → 幂等建表。</summary>
 public class DatabaseInitializer
 {
-    public DatabaseInitializer(string? explicitDatabasePath = null, string? settingsDirectory = null)
+    public DatabaseInitializer(
+        string? explicitDatabasePath = null,
+        string? settingsDirectory = null,
+        string? baseDirectory = null)
     {
-        Resolution = DatabasePathResolver.ResolveForCurrentProcess(explicitDatabasePath, settingsDirectory);
+        Resolution = DatabasePathResolver.ResolveForCurrentProcess(
+            explicitDatabasePath,
+            settingsDirectory,
+            baseDirectory);
         var prepared = DatabaseMigrator.Prepare(Resolution);
         DatabasePath = prepared.DatabasePath;
         MigrationWarning = prepared.Warning;

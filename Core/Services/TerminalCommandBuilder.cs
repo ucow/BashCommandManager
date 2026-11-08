@@ -206,7 +206,13 @@ public static class TerminalCommandBuilder
             $"未知占位符 {token}，允许的占位符：{string.Join(" ", AllPlaceholders)}")
     };
 
-    private static string Quote(string value) => $"\"{value}\"";
+    private static string Quote(string value)
+    {
+        // Windows 命令行解析规则：引号内结尾的反斜杠会转义闭合引号（"C:\" 会吞掉引号），
+        // 因此结尾反斜杠必须再补一个（"C:\\"）。{dir} 在盘符根时就是 C:\，wt/自定义模板会踩到。
+        var escaped = value.EndsWith('\\') ? value + "\\" : value;
+        return $"\"{escaped}\"";
+    }
 
     private static string EscapePowerShellLiteral(string value) => value.Replace("'", "''");
 }

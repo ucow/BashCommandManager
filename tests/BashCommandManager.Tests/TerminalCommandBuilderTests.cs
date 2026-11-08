@@ -235,6 +235,17 @@ public class TerminalCommandBuilderTests
     }
 
     [Fact]
+    public void B18b_根目录目录参数转义结尾反斜杠()
+    {
+        var settings = new ExecutionSettings { Terminal = TerminalKind.WindowsTerminal };
+
+        var plan = Build(settings, @"C:\demo.bat");
+
+        Assert.Equal(@"C:\", plan.WorkingDirectory);
+        Assert.Equal(@"-d ""C:\\"" cmd.exe /k ""C:\demo.bat""", plan.Arguments);
+    }
+
+    [Fact]
     public void 相同输入两次调用返回相等结果()
     {
         var settings = new ExecutionSettings

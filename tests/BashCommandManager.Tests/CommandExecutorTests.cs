@@ -71,6 +71,37 @@ public class CommandExecutorTests : IDisposable
     }
 
     [Fact]
+    public void 降级_cmd_时重置为_cmd_默认模板()
+    {
+        var settings = new FakeSettingsService
+        {
+            Execution = new ExecutionSettings
+            {
+                Terminal = TerminalKind.WindowsTerminal,
+                ArgumentsTemplate = "-d {dir} cmd.exe /k {file}"
+            }
+        };
+        var locator = new FakeExecutableLocator();
+        locator.Results[TerminalKind.WindowsTerminal] = null;
+        locator.Results[TerminalKind.Cmd] = "cmd.exe";
+
+        var executor = new CapturingCommandExecutor(settings, locator);
+        var script = CreateScript();
+        var command = new Command { Id = 19, Name = "demo", FilePath = script };
+
+        var result = executor.ExecuteWithResult(command, new ExecutionOptions());
+
+        Assert.True(result.Started);
+        Assert.Equal(TerminalKind.Cmd, result.EffectiveTerminal);
+        Assert.True(result.FallbackApplied);
+        Assert.Equal("cmd.exe", executor.StartInfo!.FileName);
+        Assert.Equal(@"/k """ + script + @"""", executor.StartInfo.Arguments);
+        Assert.Contains("已改用 cmd 并使用 cmd 默认参数", result.Notice);
+        // 降级只作用于本次启动，不能污染服务里的用户配置。
+        Assert.Equal("-d {dir} cmd.exe /k {file}", settings.Execution.ArgumentsTemplate);
+    }
+
+    [Fact]
     public void 终端存在时不降级()
     {
         var settings = new FakeSettingsService

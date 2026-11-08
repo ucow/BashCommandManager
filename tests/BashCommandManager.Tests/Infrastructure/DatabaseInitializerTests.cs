@@ -108,6 +108,54 @@ public class DatabaseInitializerTests : IDisposable
         }
     }
 
+    [Fact]
+    public void Cli_base_directory_finds_and_migrates_gui_legacy_database()
+    {
+        var root = Path.Combine(_root, "install");
+        var cliBase = Path.Combine(root, "cli");
+        var settingsDirectory = Path.Combine(_root, "settings");
+        var legacyPath = Path.Combine(root, "data", "app.db");
+        var canonicalPath = Path.Combine(settingsDirectory, "data", "app.db");
+
+        Directory.CreateDirectory(cliBase);
+        Directory.CreateDirectory(Path.GetDirectoryName(legacyPath)!);
+        using (var legacy = new SQLiteConnection($"Data Source={legacyPath};Version=3;"))
+        {
+            legacy.Open();
+            using var seed = new SQLiteCommand(
+                "CREATE TABLE LegacyProbe (Id INTEGER PRIMARY KEY, Name TEXT);" +
+                "INSERT INTO LegacyProbe (Id, Name) VALUES (1, '旧数据');",
+                legacy);
+            seed.ExecuteNonQuery();
+        }
+
+        var previous = Environment.GetEnvironmentVariable(DatabasePathResolver.EnvironmentVariableName);
+        Environment.SetEnvironmentVariable(DatabasePathResolver.EnvironmentVariableName, null);
+        try
+        {
+            var initializer = new DatabaseInitializer(
+                settingsDirectory: settingsDirectory,
+                baseDirectory: cliBase);
+
+            Assert.Equal(canonicalPath, initializer.DatabasePath);
+            Assert.Null(initializer.MigrationWarning);
+            Assert.Equal(DatabasePathSource.LocalAppData, initializer.Source);
+            Assert.True(initializer.Resolution.RequiresMigration);
+            Assert.Equal(Path.GetFullPath(legacyPath), initializer.Resolution.LegacyPath);
+
+            initializer.Initialize();
+
+            using var connection = new SQLiteConnection(initializer.ConnectionString);
+            connection.Open();
+            using var probe = new SQLiteCommand("SELECT COUNT(*) FROM LegacyProbe", connection);
+            Assert.Equal(1L, Convert.ToInt64(probe.ExecuteScalar()));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(DatabasePathResolver.EnvironmentVariableName, previous);
+        }
+    }
+
     public void Dispose()
     {
         SQLiteConnection.ClearAllPools();

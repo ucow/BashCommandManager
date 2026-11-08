@@ -34,18 +34,71 @@ public static class DatabasePathResolver
 
     public static string CanonicalDatabasePath => Path.Combine(SettingsDirectory, "data", DatabaseFileName);
 
+    /// <summary>GUI 安装目录下的旧库（{base}\data\app.db）；仅为兼容旧调用方，实际解析会遍历候选列表。</summary>
     public static string LegacyDatabasePath => Path.Combine(AppContext.BaseDirectory, "data", DatabaseFileName);
+
+    /// <summary>当前进程基目录下的全部旧库候选（按优先级排序）。</summary>
+    public static IReadOnlyList<string> LegacyDatabaseCandidates => GetLegacyCandidatePaths(AppContext.BaseDirectory);
+
+    /// <summary>
+    /// 旧库候选路径，按顺序取第一个存在的：
+    /// 1) {base}\data\app.db（GUI 安装目录）；
+    /// 2) {base}\..\data\app.db（CLI 位于 {app}\cli 时的 GUI 安装目录）；
+    /// 3) 若 base 的目录名为 cli，显式再声明一次父目录候选（便于阅读与测试）。
+    /// </summary>
+    public static IReadOnlyList<string> GetLegacyCandidatePaths(string baseDirectory)
+    {
+        var normalizedBase = string.IsNullOrWhiteSpace(baseDirectory)
+            ? AppContext.BaseDirectory
+            : Path.GetFullPath(baseDirectory);
+
+        var trimmedBase = normalizedBase.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (trimmedBase.EndsWith(':'))
+        {
+            // 盘符根（如 C:\）TrimEnd 后变成 "C:"，Path.Combine 会生成盘符相对路径，补回分隔符。
+            trimmedBase += Path.DirectorySeparatorChar;
+        }
+
+        var candidates = new List<string>(3);
+        AddCandidate(candidates, Path.Combine(trimmedBase, "data", DatabaseFileName));
+
+        var parentCandidate = Path.GetFullPath(
+            Path.Combine(trimmedBase, "..", "data", DatabaseFileName));
+        AddCandidate(candidates, parentCandidate);
+
+        if (string.Equals(Path.GetFileName(trimmedBase), "cli", StringComparison.OrdinalIgnoreCase))
+        {
+            // CLI 安装在 {app}\cli：父目录即 GUI 安装目录。与上一条同值，去重后不会重复。
+            AddCandidate(candidates, parentCandidate);
+        }
+
+        return candidates;
+    }
+
+    private static void AddCandidate(List<string> candidates, string path)
+    {
+        if (!candidates.Contains(path, StringComparer.OrdinalIgnoreCase))
+        {
+            candidates.Add(path);
+        }
+    }
 
     public static DatabasePathResolution Resolve(
         string? explicitPath,
         string? environmentValue,
         Func<string, bool> fileExists,
         string? settingsDirectory = null,
-        string? legacyDatabasePath = null)
+        string? legacyDatabasePath = null,
+        string? baseDirectory = null)
     {
         var settingsDir = settingsDirectory ?? SettingsDirectory;
         var canonical = Path.Combine(settingsDir, "data", DatabaseFileName);
-        var legacy = legacyDatabasePath ?? LegacyDatabasePath;
+
+        // legacyDatabasePath 是显式单路径入口（测试/特殊部署）；未提供时按基目录展开候选列表。
+        var candidates = legacyDatabasePath is not null
+            ? new[] { legacyDatabasePath }
+            : GetLegacyCandidatePaths(baseDirectory ?? AppContext.BaseDirectory);
+        var legacy = candidates.FirstOrDefault(fileExists) ?? candidates[0];
 
         if (!string.IsNullOrWhiteSpace(explicitPath))
         {
@@ -62,7 +115,7 @@ public static class DatabasePathResolver
             return new DatabasePathResolution(canonical, DatabasePathSource.LocalAppData, legacy, false);
         }
 
-        if (fileExists(legacy))
+        if (candidates.Any(fileExists))
         {
             return new DatabasePathResolution(canonical, DatabasePathSource.LocalAppData, legacy, true);
         }
@@ -71,8 +124,17 @@ public static class DatabasePathResolver
     }
 
     // settingsDirectory 由 CLI 传 CliPaths.SettingsDirectory；为 null 时回落到 %LOCALAPPDATA%
-    public static DatabasePathResolution ResolveForCurrentProcess(string? explicitPath = null, string? settingsDirectory = null)
-        => Resolve(explicitPath, Environment.GetEnvironmentVariable(EnvironmentVariableName), File.Exists, settingsDirectory);
+    // baseDirectory 仅供测试/特殊宿主注入；为 null 时回落到 AppContext.BaseDirectory。
+    public static DatabasePathResolution ResolveForCurrentProcess(
+        string? explicitPath = null,
+        string? settingsDirectory = null,
+        string? baseDirectory = null)
+        => Resolve(
+            explicitPath,
+            Environment.GetEnvironmentVariable(EnvironmentVariableName),
+            File.Exists,
+            settingsDirectory,
+            baseDirectory: baseDirectory);
 }
 
 /// <summary>把旧库一次性复制到规范位置；失败回退旧库并给告警。</summary>

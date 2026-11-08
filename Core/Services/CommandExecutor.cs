@@ -71,9 +71,14 @@ public class CommandExecutor : ICommandExecutor
         {
             var originalTerminal = settings.Terminal;
             settings = settings.WithTerminal(TerminalKind.Cmd);
+            // 持久化的模板属于原终端（如 wt 的 -d {dir} cmd.exe /k {file}），cmd 不认识；
+            // 降级必须同时把模板换成 cmd 默认模板，否则降级后的命令行是错的。
+            settings.ArgumentsTemplate = TerminalCommandBuilder.GetDefaultTemplate(
+                TerminalKind.Cmd,
+                settings.KeepWindowOpen);
             resolved = _executableLocator.Resolve(TerminalKind.Cmd, settings.CustomExecutablePath);
             fallbackApplied = true;
-            notice = $"未检测到 {originalTerminal.GetDisplayName()}，已改用 cmd 启动";
+            notice = $"未检测到 {originalTerminal.GetDisplayName()}，已改用 cmd 并使用 cmd 默认参数";
         }
         else if (resolved is null && settings.Terminal == TerminalKind.Custom)
         {

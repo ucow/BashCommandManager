@@ -4,19 +4,24 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HandyControl.Controls;
 using HandyControl.Data;
+using Microsoft.Win32;
 using System.Diagnostics;
-using System.Windows;
+using System.IO;
 using System.Windows.Input;
 
 namespace BashCommandManager.ViewModels;
+
+/// <summary>终端下拉项的展示模型。</summary>
+public sealed record TerminalOption(TerminalKind Kind, string DisplayName);
 
 public partial class SettingsViewModel : ObservableObject
 {
     private readonly ISettingsService _settingsService;
     private readonly IGlobalHotkeyService _hotkeyService;
+    private bool _templateIsDefault;
 
     [ObservableProperty]
-    private HotkeySettings _hotkeySettings;
+    private HotkeySettings _hotkeySettings = new();
 
     [ObservableProperty]
     private string _hotkeySettingsDisplay = string.Empty;
@@ -27,24 +32,81 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasError;
 
+    [ObservableProperty]
+    private TerminalKind _terminal;
+
+    [ObservableProperty]
+    private string _customExecutablePath = string.Empty;
+
+    [ObservableProperty]
+    private string _argumentsTemplate = string.Empty;
+
+    [ObservableProperty]
+    private bool _keepWindowOpen = true;
+
+    [ObservableProperty]
+    private bool _runAsAdministrator;
+
+    public IReadOnlyList<TerminalOption> TerminalOptions { get; } = new List<TerminalOption>
+    {
+        new(TerminalKind.Cmd, TerminalKind.Cmd.GetDisplayName()),
+        new(TerminalKind.WindowsPowerShell, TerminalKind.WindowsPowerShell.GetDisplayName()),
+        new(TerminalKind.PowerShell7, TerminalKind.PowerShell7.GetDisplayName()),
+        new(TerminalKind.WindowsTerminal, TerminalKind.WindowsTerminal.GetDisplayName()),
+        new(TerminalKind.Custom, TerminalKind.Custom.GetDisplayName())
+    };
+
+    public bool IsCustomTerminal => Terminal == TerminalKind.Custom;
+
     public SettingsViewModel(ISettingsService settingsService, IGlobalHotkeyService hotkeyService)
     {
         _settingsService = settingsService;
         _hotkeyService = hotkeyService;
 
-        // 编辑副本：冲突时服务内的当前配置仍是旧值，界面上的改动不会污染它。
         HotkeySettings = _settingsService.GetHotkeySettings().Clone();
+
+        var execution = _settingsService.GetExecutionSettings().Clone();
+        _terminal = Enum.IsDefined(execution.Terminal) ? execution.Terminal : TerminalKind.Cmd;
+        _customExecutablePath = execution.CustomExecutablePath ?? string.Empty;
+        _keepWindowOpen = execution.KeepWindowOpen;
+        _runAsAdministrator = execution.RunAsAdministrator;
+        _argumentsTemplate = string.IsNullOrWhiteSpace(execution.ArgumentsTemplate)
+            ? TerminalCommandBuilder.GetDefaultTemplate(_terminal, _keepWindowOpen)
+            : execution.ArgumentsTemplate.Trim();
+        _templateIsDefault = string.Equals(
+            _argumentsTemplate,
+            TerminalCommandBuilder.GetDefaultTemplate(_terminal, _keepWindowOpen),
+            StringComparison.Ordinal);
+
         UpdateDisplayString();
     }
 
-    partial void OnHotkeySettingsChanged(HotkeySettings value)
+    partial void OnHotkeySettingsChanged(HotkeySettings value) => UpdateDisplayString();
+
+    partial void OnTerminalChanged(TerminalKind value)
     {
-        UpdateDisplayString();
+        OnPropertyChanged(nameof(IsCustomTerminal));
+
+        if (_templateIsDefault)
+        {
+            ArgumentsTemplate = TerminalCommandBuilder.GetDefaultTemplate(value, KeepWindowOpen);
+        }
     }
 
-    private void UpdateDisplayString()
+    partial void OnKeepWindowOpenChanged(bool value)
     {
-        HotkeySettingsDisplay = HotkeySettings.ToDisplayString();
+        if (_templateIsDefault)
+        {
+            ArgumentsTemplate = TerminalCommandBuilder.GetDefaultTemplate(Terminal, value);
+        }
+    }
+
+    partial void OnArgumentsTemplateChanged(string value)
+    {
+        _templateIsDefault = string.Equals(
+            value,
+            TerminalCommandBuilder.GetDefaultTemplate(Terminal, KeepWindowOpen),
+            StringComparison.Ordinal);
     }
 
     [RelayCommand]
@@ -110,11 +172,59 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void BrowseCustomExecutable()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "选择终端程序",
+            Filter = "可执行文件|*.exe;*.bat;*.cmd|所有文件|*.*",
+            CheckFileExists = true
+        };
+
+        if (dialog.ShowDialog() == true)
+        {
+            CustomExecutablePath = dialog.FileName;
+        }
+    }
+
+    [RelayCommand]
+    private void ResetTemplate()
+    {
+        _templateIsDefault = true;
+        ArgumentsTemplate = TerminalCommandBuilder.GetDefaultTemplate(Terminal, KeepWindowOpen);
+    }
+
+    [RelayCommand]
     private void Save(System.Windows.Window? window)
     {
         if (!HotkeySettings.IsValid(HotkeySettings))
         {
             ErrorMessage = "快捷键设置无效";
+            HasError = true;
+            return;
+        }
+
+        if (Terminal == TerminalKind.Custom)
+        {
+            if (string.IsNullOrWhiteSpace(CustomExecutablePath))
+            {
+                ErrorMessage = "自定义终端程序路径不能为空";
+                HasError = true;
+                return;
+            }
+
+            if (!File.Exists(CustomExecutablePath))
+            {
+                ErrorMessage = $"自定义程序不存在：{CustomExecutablePath}";
+                HasError = true;
+                return;
+            }
+        }
+
+        var templateErrors = TerminalCommandBuilder.ValidateTemplate(ArgumentsTemplate);
+        if (templateErrors.Count > 0)
+        {
+            ErrorMessage = string.Join("；", templateErrors);
             HasError = true;
             return;
         }
@@ -155,8 +265,32 @@ public partial class SettingsViewModel : ObservableObject
             _hotkeyService.Unregister();
         }
 
-        // 传克隆体，避免服务内的内存配置与界面编辑副本互为别名。
-        _settingsService.SaveHotkeySettings(HotkeySettings.Clone());
+        var execution = new ExecutionSettings
+        {
+            Terminal = Terminal,
+            CustomExecutablePath = (CustomExecutablePath ?? string.Empty).Trim(),
+            ArgumentsTemplate = (ArgumentsTemplate ?? string.Empty).Trim(),
+            KeepWindowOpen = KeepWindowOpen,
+            RunAsAdministrator = RunAsAdministrator
+        };
+
+        try
+        {
+            // 传克隆体，避免服务内的内存配置与界面编辑副本互为别名（#8 Task 9 的语义）。
+            _settingsService.SaveHotkeySettings(HotkeySettings.Clone());
+            _settingsService.SaveExecutionSettings(execution);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"设置保存失败：{ex.Message}";
+            HasError = true;
+            Growl.Error(new GrowlInfo
+            {
+                Message = $"设置保存失败：{ex.Message}",
+                WaitTime = 5
+            });
+            return;
+        }
 
         // 成功路径必须复位：本 VM 由根容器解析、实际是单例，否则下次打开设置页还挂着旧红字。
         HasError = false;
@@ -176,4 +310,6 @@ public partial class SettingsViewModel : ObservableObject
     {
         window?.Close();
     }
+
+    private void UpdateDisplayString() => HotkeySettingsDisplay = HotkeySettings.ToDisplayString();
 }

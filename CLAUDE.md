@@ -42,6 +42,19 @@ dotnet publish -c Release -r win-x64 -p:SelfContained=true -p:PublishSingleFile=
 dotnet publish -c Release -r win-x64 -p:SelfContained=false -p:PublishSingleFile=true
 ```
 
+### CLI 构建与测试
+
+```bash
+# 构建 CLI
+dotnet build BashCommandManager.Cli/BashCommandManager.Cli.csproj -c Release
+
+# 运行 CLI 测试
+dotnet test tests/BashCommandManager.Cli.Tests/BashCommandManager.Cli.Tests.csproj
+
+# 运行 CLI
+./BashCommandManager.Cli/bin/Release/net8.0-windows/bcm.exe --help
+```
+
 ### 打包安装程序
 
 使用 `packaging-release` skill 或参考 `docs/PACKAGING.md`。
@@ -95,10 +108,10 @@ dotnet publish -c Release -r win-x64 -p:SelfContained=false -p:PublishSingleFile
 
 #### 3. 数据持久化
 
-SQLite 数据库存储在应用目录 `data/app.db`：
-- 自动创建表和索引
-- 外键级联删除
-- 初始化时插入根分组（Id=1）
+SQLite 数据库存储在 `%LOCALAPPDATA%\BashCommandManager\data\app.db`（`Infrastructure/DatabasePathResolver.cs` 统一解析）：
+- 旧位置 `{应用目录}\data\app.db` 仅在首次解析时作为迁移源，**只复制不删除**
+- 迁移失败会回退旧库并只写 `Debug.WriteLine`；`BASHCOMMANDMANAGER_DB` 可覆盖路径
+- 连接串含 `Foreign Keys=True`，删除分组会级联删除命令
 
 #### 4. MVVM 实现
 
@@ -166,3 +179,5 @@ SQLite 数据库存储在应用目录 `data/app.db`：
 
 待完成：
 - 开机自启动、主题切换
+
+CLI（`bcm`）覆盖 `groups/commands/run/config/open` 共 19 条子命令，操作说明见 `.claude/skills/bash-command-manager/SKILL.md`。

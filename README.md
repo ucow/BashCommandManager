@@ -1,5 +1,7 @@
 # BashCommandManager
 
+> 当前版本：v1.3.0
+
 <p align="center">
   <img src="Assets/app.ico" width="128" height="128" alt="BashCommandManager Logo">
 </p>
@@ -130,6 +132,20 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 
 发布后的文件将在 `bin/Release/net8.0-windows/win-x64/publish/` 目录中。
 
+### 命令行（bcm）
+
+安装包会把 CLI 放在 `{安装目录}\cli\bcm.exe`，首次安装可勾选「Add bcm CLI to PATH」。
+
+```bash
+bcm --help
+bcm groups list --json
+bcm commands search 备份 --json
+bcm run 备份 --wait
+bcm open --command 7
+```
+
+数据位置：`%LOCALAPPDATA%\BashCommandManager\data\app.db`（旧版安装目录下的 `data\app.db` 会在首次启动时自动复制过来）。
+
 ---
 
 ## 📖 使用说明
@@ -180,6 +196,7 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 ```
 BashCommandManager/
 ├── Assets/                    # 资源文件（图标等）
+├── BashCommandManager.Cli/     # bcm CLI（源码链接 Core 的 WPF-free 子集）
 ├── Controls/                  # 自定义控件
 ├── Core/                      # 核心业务逻辑
 │   ├── Models/               # 数据模型

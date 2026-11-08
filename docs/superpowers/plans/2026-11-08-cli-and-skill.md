@@ -16,15 +16,15 @@
 
 - 平台：Windows 10/11 x64；CLI 目标框架固定 `net8.0-windows`（**不加** `UseWPF`、**不加** `UseWindowsForms`），`AssemblyName=bcm`，`<Version>1.3.0</Version>`（D6 要求三处版本统一为 `1.3.0`：CLI csproj、两个 `.iss` 的 `MyAppVersion`、README）。
 - **D2.2（硬约束）**：CLI **不得**链接 `Core/Services/CommandExecutor.cs`、`CommandService.cs`、`SettingsService.cs`、`Core/Models/HotkeySettings.cs`、`SingleInstanceService.cs`、`GlobalHotkeyService.cs`；`run` 子命令自行实现启动逻辑，但命令构造必须复用 `Core/Services/TerminalCommandBuilder.cs`。
-- CLI 允许链接（均 WPF-free，以 `DECISIONS.md` D2.2 第 3 条为准）：`Core/Models/Command.cs`、`Group.cs`、`SortOptions.cs`、`TerminalKind.cs`、`ExecutionSettings.cs`、`Core/Services/TerminalCommandBuilder.cs`、`ExecutionResult.cs`（含 `TerminalLaunchPlan`/`ExecutionOptions`/`ExecutionResult`）、`ExecutableLocator.cs`、`Core/Repositories/CommandRepository.cs`、`GroupRepository.cs`、`Core/Services/DatabaseService.cs`、`GroupService.cs`、`Infrastructure/DatabaseInitializer.cs`、`Infrastructure/DatabasePathResolver.cs`。
+- CLI 允许链接（均 WPF-free，以 `DECISIONS.md` D2.2 第 3 条为准）：`Core/Models/Command.cs`、`Group.cs`、`SortOptions.cs`、`TerminalKind.cs`、`ExecutionSettings.cs`、`TerminalLaunchPlan.cs`、`Core/Services/TerminalCommandBuilder.cs`、`ExecutionResult.cs`（含 `ExecutionOptions`/`ExecutionResult` 记录，**不含** `TerminalLaunchPlan`）、`ExecutableLocator.cs`、`Core/Repositories/CommandRepository.cs`、`GroupRepository.cs`、`Core/Services/DatabaseService.cs`、`GroupService.cs`、`Infrastructure/DatabaseInitializer.cs`、`Infrastructure/DatabasePathResolver.cs`。
 - 不新增第三方 NuGet 依赖（D5.5）；CLI 仅 `Dapper`、`System.Data.SQLite.Core`、`CommunityToolkit.Mvvm`（版本与主工程一致），测试项目仅 `Microsoft.NET.Test.Sdk 17.8.0`、`xunit 2.5.3`、`xunit.runner.visualstudio 2.5.3`。
 - 绝不交互：CLI 不读 stdin、不弹窗、不调用 `Dialog`/`ReadLine`/`ReadKey`；`--admin` 的 UAC 属 OS 行为。
 - 输出：UTF-8 **无 BOM**（`new UTF8Encoding(false)`），JSON 用 `JavaScriptEncoder.UnsafeRelaxedJsonEscaping`（中文不转 `\uXXXX`）、`WriteIndented=false`；成功写 **stdout**，失败写 **stderr**；`lastExecutedAt` 为本地时间 `yyyy-MM-ddTHH:mm:ss`，空为 `null`。
 - 退出码：`0` 成功；`1` 参数/用法（未知命令或选项、缺值、非法枚举、缺 `--force`、`--admin` 与 `--wait` 冲突、`--timeout` 单独用、`--db` 指向目录、未找到配置键）；`2` 未找到（命令/分组/GUI 可执行文件）；`3` 运行时失败（数据库打开/写入/被占用、脚本文件缺失、子进程非 0、UAC 取消、超时）。
 - 错误码集合：`E_USAGE`、`E_INVALID_VALUE`、`E_AMBIGUOUS`、`E_CONFIRM_REQUIRED`、`E_ROOT_GROUP`、`E_NOT_FOUND`、`E_FILE_NOT_FOUND`、`E_GUI_NOT_FOUND`、`E_CONFIG_KEY`、`E_DB_ERROR`、`E_DB_BUSY`、`E_COMMAND_FAILED`、`E_TIMEOUT`、`E_ELEVATION_CANCELLED`、`E_INTERNAL`（本计划新增的兜底码，见「偏差记录 VD-5」）。
-- 主工程 `BashCommandManager.csproj` 必须存在 `DefaultItemExcludes` 覆盖 `tests\**;BashCommandManager.Cli\**`（D2）——本计划只**验证**，缺失才补（T1 步骤 2）。
+- 主工程 `BashCommandManager.csproj` 必须存在 `DefaultItemExcludes` 覆盖 `tests\**;BashCommandManager.Cli\**`（D2）——本计划只**验证**；缺失即说明 #8 未合入，停止并先合入 #8（T1 步骤 2）。
 - 现有 GUI 行为不回归：`dotnet publish` 原命令仍只发布主工程、产物名为 `BashCommandManager.exe`、`Inno` 的 `OutputBaseFilename` 不变；「运行」默认仍是 `cmd.exe /k "<脚本>"`。
-- 测试隔离：任何测试/冒烟**不得**读写真实安装库 `D:\Program Files\BashCommandManager\data\app.db` 与真实 `%LOCALAPPDATA%\BashCommandManager\settings.json`；一律用 `--db <临时文件>`、`BASHCOMMANDMANAGER_DB`、`BASHCOMMANDMANAGER_SETTINGS_DIR` 指向临时目录（见 VD-6）。
+- 测试隔离：任何测试/冒烟**不得**读写真实安装库 `D:\Program Files\BashCommandManager\data\app.db` 与真实 `%LOCALAPPDATA%\BashCommandManager\settings.json`；数据库一律用 `--db <临时文件>` 或 `BASHCOMMANDMANAGER_DB` 指向临时文件。`BASHCOMMANDMANAGER_SETTINGS_DIR` 指向临时目录时，会同时把 CLI 的 `settings.json` 与**未显式指定时的数据库**（`<该目录>\data\app.db`）重定向到该临时目录（见 VD-6）。
 - 每个任务先写失败测试再写实现（D5.4）；提交信息前缀 `feat(cli):`/`test(cli):`/`chore(cli):`/`docs(cli):`。
 - 新代码 UTF-8，中文不得出现 `?` 或 `鏂` 类乱码（D5.6）；新增公开类型写一行中文职责注释（D5.7）。
 
@@ -37,19 +37,19 @@
 - D1 规定实施顺序 **#8 热键 → #9 执行终端 → #10 CLI + skill**，严格串行。本计划假设 #8、#9 已合入当前分支。
 - 分支：`feat/v1.3.0`（已从 `master` 拉出），在本分支直接执行，不额外建 worktree。
 
-### 0.2 本计划写作时的仓库核实结果（与任务说明的差异）
+### 0.2 仓库核实结果（与任务说明的差异）
 
-| 事实 | 核实命令 | 写作时结果 | 影响 |
+| 事实 | 核实命令 | 最近核实结果 | 影响 |
 |---|---|---|---|
-| 主 csproj 有 `DefaultItemExcludes` | `Select-String -Path BashCommandManager.csproj -Pattern DefaultItemExcludes` | **无匹配**（28 行 csproj 无该 ItemGroup） | #8 尚未落地；T1 步骤 2 会**补上**并说明 |
-| `tests/BashCommandManager.Tests/` 存在 | `Test-Path tests\BashCommandManager.Tests\BashCommandManager.Tests.csproj` | **False** | 同第一行：#8 未落地，T1 步骤 2 一并创建（内容取 D2 的 csproj 定义） |
-| #9 产物存在 | `Core\Models\TerminalKind.cs`、`ExecutionSettings.cs`、`Core\Services\TerminalCommandBuilder.cs`、`ExecutionResult.cs`、`ExecutableLocator.cs` | **全部 False** | CLI 无法编译；T1 步骤 1 硬性拦截：缺失即停，先完成 #9 |
+| 主 csproj 有 `DefaultItemExcludes` | `Select-String -Path BashCommandManager.csproj -Pattern DefaultItemExcludes` | **已匹配**（#8 已落地，`BashCommandManager.csproj:8` 的 `PropertyGroup` 内） | T1 步骤 2 应**整体跳过**；无匹配即说明当前分支不含 #8，应停止并先合入 #8 |
+| `tests/BashCommandManager.Tests/` 存在 | `Test-Path tests\BashCommandManager.Tests\BashCommandManager.Tests.csproj` | **True**（#8 已落地） | T1 步骤 2 不再创建；本计划只在该项目下追加测试文件 |
+| #9 产物存在 | `Core\Models\TerminalKind.cs`、`Core\Models\ExecutionSettings.cs`、`Core\Models\TerminalLaunchPlan.cs`、`Core\Services\TerminalCommandBuilder.cs`、`Core\Services\ExecutionResult.cs`、`Core\Services\ExecutableLocator.cs` | **部分已落地**（前 5 个 `True`，`ExecutableLocator.cs` 仍 `False`） | CLI 无法完整编译；T1 步骤 1 硬性拦截：缺失即停，先完成 #9 |
 | `BashCommandManager.Cli/` 存在 | `Test-Path BashCommandManager.Cli` | False | 本计划从零创建 |
 | 真实安装库 | `D:\Program Files\BashCommandManager\data\app.db` | 存在（旧库） | 所有测试用临时库，禁止指向该路径 |
 | SDK | `dotnet --list-sdks` | `10.0.301` | 可构建 `net8.0-windows`；xunit 2.5.3 本机可离线还原（已验证） |
-| `DECISIONS.md` D2.2 第 3 条 | `git diff docs/superpowers/DECISIONS.md` | 写作期间被更新：可链接清单新增 `Core/Services/ExecutionResult.cs`（含 `TerminalLaunchPlan`/`ExecutionOptions`/`ExecutionResult`） | 本计划已按更新后的清单链接该文件（T1 的 `SharedSources`） |
+| `DECISIONS.md` D2.2 第 3 条 | `Select-String -Path docs/superpowers/DECISIONS.md -Pattern TerminalLaunchPlan` | 已更新：可链接清单含 `Core/Models/TerminalLaunchPlan.cs`（独立文件），`Core/Services/ExecutionResult.cs` 只含 `ExecutionOptions`/`ExecutionResult` | 本计划按该清单链接**两个**文件（T1 的 `SharedSources`），不再把 `TerminalLaunchPlan` 当成 `ExecutionResult.cs` 里的记录 |
 
-> 结论：本计划可以照抄执行，但 **T1 步骤 1 必须真实跑一遍**。若 #9 未完成，执行者应停下来报告 `#9 未合入，CLI 依赖的 TerminalCommandBuilder/ExecutionSettings/TerminalKind/ExecutableLocator 不存在`，而不是在 CLI 里复制一份命令构造逻辑（那会违反 D2.2 的第 4 条「`--dry-run` 必须复用 `TerminalCommandBuilder`」）。
+> 结论：本计划可以照抄执行，但 **T1 步骤 1 必须真实跑一遍**。若 #9 未完成，执行者应停下来报告 `#9 未合入，CLI 依赖的 TerminalKind/ExecutionSettings/TerminalLaunchPlan/TerminalCommandBuilder/ExecutionResult/ExecutableLocator 不完整`，而不是在 CLI 里复制一份命令构造逻辑（那会违反 D2.2 的第 4 条「`--dry-run` 必须复用 `TerminalCommandBuilder`」）。
 
 ### 0.3 与 spec 的偏差记录（每条都在提交说明里引用编号）
 
@@ -60,10 +60,14 @@
 | VD-3 | `run` 默认（非 `--wait`）JSON 含 `"pid":1234` | `pid` 为 `int?`：`--wait` 下为真实进程 id；默认分支 `UseShellExecute=true`（与 GUI 逐字节一致）时 Windows 的 `Process.Start` 返回 `null`，此时 `pid` 为 `null` | 保持 A7「与 GUI 一致、可见窗口、立即返回」优先；拿 pid 必须 `UseShellExecute=false`，会把子进程挂到调用者控制台，破坏「立即返回 + 独立窗口」语义 |
 | VD-4 | spec 5 节要求 `open` 返回 `meta.warning` 提示旧 GUI | 不返回该 warning | 旧 GUI 不讲管道协议，CLI 无法探测对端版本；改为 SKILL.md 写明「GUI 需与 CLI 同版本」。`open` 语义仍满足验收 9（启动或经 NamedPipe 激活，不产生第二个窗口） |
 | VD-5 | 「错误码固定集合」14 个 | 增加 `E_INTERNAL`（退出 3），仅用于兜底未预期异常与导出文件写入失败 | 否则只能把内部错误伪装成 `E_DB_ERROR`（语义错误）。正常路径不会出现该码；有专门测试 |
-| VD-6 | spec 未提供 settings 目录覆盖手段 | 新增环境变量 `BASHCOMMANDMANAGER_SETTINGS_DIR`（仅 CLI 读取，用于测试/便携） | 冒烟测试要执行 `config set`，绝不能改写开发机真实 `settings.json`；默认值仍等于 `%LOCALAPPDATA%\BashCommandManager`（验收 3 不受影响） |
+| VD-6 | spec 未提供 settings 目录覆盖手段 | 新增环境变量 `BASHCOMMANDMANAGER_SETTINGS_DIR`（CLI 读取）：覆盖 `settings.json` 的目录；未显式指定 `--db`/`BASHCOMMANDMANAGER_DB` 时，数据库也重定向到 `<该目录>\data\app.db`（`DatabaseInitializer(explicit, settingsDirectory)` → `DatabasePathResolver.Resolve(..., settingsDirectory)`） | 冒烟/单测必须能**同时**隔离 `settings.json` 与数据库，绝不能碰开发机真实 `%LOCALAPPDATA%` 库；优先级 `--db` > `BASHCOMMANDMANAGER_DB` > settings 目录 > `%LOCALAPPDATA%`；默认值仍等于 `%LOCALAPPDATA%\BashCommandManager`（验收 3 不受影响） |
 | VD-7 | spec 2 节 `DatabasePathResolver.Resolve` 只有 3 参 | 追加两个**可选**参数 `settingsDirectory`、`legacyDatabasePath` | D4.1 要求「注入目录与文件系统委托」的迁移单测；3 参调用完全兼容 |
 | VD-8 | `groups create` 未定义同名处理 | 同级同名分组 → `E_INVALID_VALUE` 退出 1（与 GUI `CheckGroupNameExistsAsync` 一致）；`groups rename` 同规则（排除自身） | 避免 CLI 造出 GUI 会拒绝的数据 |
 | VD-9 | `groups delete` 回报 `deletedGroupIds` 未定义是否含自身 | 含自身 + 全部后代，**升序** | 可被测试断言 |
+| VD-10 | 测试策略 301「文件缺失时写扁平格式」 | 文件不存在（或根对象缺 `Hotkey` 节点）时统一写**嵌套** `{"Hotkey":{...}}`；只有文档本身是旧扁平格式（根上直接有 `Enabled`/`Key`/`Modifiers`，且无 `Hotkey`/`Execution` 段）时才继续写扁平 | 与 DECISIONS D3「唯一形状 `{Hotkey,Execution}`」冲突时以 D3 为准，spec 301 的扁平写法作废；旧扁平输入仍可读（`Reads_flat_hotkey_format`） |
+| VD-11 | spec 测试策略未规定键码表的跨工程校验 | GUI 测试工程用 `<Compile Include="..\..\BashCommandManager.Cli\Application\HotkeyKeyMap.cs" Link="Shared\HotkeyKeyMap.cs" />` 引入同一份源码，并用 WPF `Key` 枚举做交叉断言 | CLI 不能引用 WPF；手写键码表若与 `System.Windows.Input.Key` 漂移，只能靠 GUI 侧发现。源码链接避免给 CLI 测试工程引入 WPF（也不会给 CLI 程序集增加 WPF 引用） |
+| VD-12 | `DECISIONS.md` D5.3「不删除、不改名任何已有公开类/方法（只允许新增）」 | `SingleInstanceService.Initialize(Action)` **保留**为兼容重载（内部转发到 `Initialize(Action<string[]>, string[])`）；新增 `Initialize(Action<string[]> onActivateCallback, string[] startupArgs)` | T24 需要把启动参数随管道消息转发给第一个实例；直接替换旧签名会违反 D5.3。保留旧重载后 `App.xaml.cs` 只改用新重载，仓库内旧调用点（T24 已核实只有 `App.xaml.cs`）无需改动；本偏差按 D5.3 要求在计划内显式登记 |
+| VD-13 | spec 2 节通用规则「`<id\|name>` 的 `--group` 先限定候选」（design L203） | `commands edit` 的 `--group` 是**目标分组**（修改后的归属，等价于 `commands move`，但可与 `--name`/`--description`/`--file` 同时使用）；`commands show`/`run`/`delete` 的 `--group` 仍先限定候选 | 编辑时最常见的诉求是「改名 + 换分组」；若 `--group` 仅限定候选就无法一次完成移动。命令表（`CommandCatalog`）、`EditAsync` 实现与测试统一按此口径，`commands move` 专做批量移动 |
 
 ### 0.4 执行期间的固定命令
 
@@ -122,9 +126,9 @@ dotnet test tests\BashCommandManager.Tests\BashCommandManager.Tests.csproj
 | `BashCommandManager.Cli/Operations/ConfigCommand.cs` | `config get/set` |
 | `BashCommandManager.Cli/Operations/OpenCommand.cs` | `open` |
 
-### 新增：CLI 测试项目（33 个文件）
+### 新增：CLI 测试项目（35 个文件）
 
-`tests/BashCommandManager.Cli.Tests/BashCommandManager.Cli.Tests.csproj`、`TestSupport/{TempDatabase,CliServicesFactory,FakeSettingsStore,FakeProcessRunner,FakeGuiLauncher,FakeExecutableLocator,CliProcess}.cs`、`CommandLine/{CliVersionTests,HelpCatalogTests,CliHostHelpVersionTests,ParserGlobalOptionTests,ParserCommandShapeTests,ParserValidationTests,CliHostDatabaseTests}.cs`、`Infrastructure/{ExitCodesTests,GuiLauncherTests}.cs`、`Output/{JsonEnvelopeTests,OutputWriterTests,TableWriterTests}.cs`、`Application/{CliCommandStoreTests,CliSettingsStoreTests,HotkeySpecTests}.cs`、`Operations/{DatabaseSessionTests,CommandResolverTests,GroupCommandsTests,CommandCommandsTests,ImportExportTests,RunCommandTests,ProcessRunnerTests,ConfigCommandTests,OpenCommandTests}.cs`、`Smoke/CliSmokeTests.cs`。
+`tests/BashCommandManager.Cli.Tests/BashCommandManager.Cli.Tests.csproj`、`TestSupport/{TempDatabase,EnvironmentCollection,CliServicesFactory,FakeSettingsStore,FakeProcessRunner,FakeGuiLauncher,FakeGuiProcessStarter,FakeExecutableLocator,CliProcess}.cs`、`CommandLine/{CliVersionTests,HelpCatalogTests,CliHostHelpVersionTests,ParserGlobalOptionTests,ParserCommandShapeTests,ParserValidationTests,CliHostDatabaseTests}.cs`、`Infrastructure/{ExitCodesTests,GuiLauncherTests}.cs`、`Output/{JsonEnvelopeTests,OutputWriterTests,TableWriterTests}.cs`、`Application/{CliCommandStoreTests,CliSettingsStoreTests,HotkeySpecTests}.cs`、`Operations/{DatabaseSessionTests,CommandResolverTests,GroupCommandsTests,CommandCommandsTests,ImportExportTests,RunCommandTests,ProcessRunnerTests,ConfigCommandTests,OpenCommandTests}.cs`、`Smoke/CliSmokeTests.cs`。
 
 ### 新增/修改：GUI 侧（11 个文件）
 
@@ -142,9 +146,9 @@ dotnet test tests\BashCommandManager.Tests\BashCommandManager.Tests.csproj
 | `ViewModels/GroupTreeViewModel.cs` | **修改**：新增 `FindGroupById(int)` |
 | `BashCommandManager.csproj` | **验证/补**：`DefaultItemExcludes`（T1） |
 
-### 新增/修改：GUI 测试（5 个文件）
+### 新增/修改：GUI 测试（7 个测试文件 + 1 处 csproj 追加）
 
-`tests/BashCommandManager.Tests/Infrastructure/DatabasePathResolverTests.cs`、`Infrastructure/DatabaseMigratorTests.cs`、`Infrastructure/DatabaseInitializerTests.cs`、`Core/StartupArgumentParserTests.cs`、`Core/SingleInstanceMessageTests.cs`。
+`tests/BashCommandManager.Tests/Infrastructure/DatabasePathResolverTests.cs`、`Infrastructure/DatabaseMigratorTests.cs`、`Infrastructure/DatabaseInitializerTests.cs`、`Core/StartupArgumentParserTests.cs`、`Core/SingleInstanceMessageTests.cs`、`Core/HotkeyKeyMapTests.cs`、`TestSupport/EnvironmentCollection.cs`（T6 的环境变量用例靠它串行化）；并修改 `tests/BashCommandManager.Tests/BashCommandManager.Tests.csproj` 追加 `HotkeyKeyMap.cs` 的 `Compile Link`（VD-11）。
 
 ### 新增/修改：打包与文档（6 个文件）
 
@@ -155,8 +159,8 @@ dotnet test tests\BashCommandManager.Tests\BashCommandManager.Tests.csproj
 ### Task 1: 前置校验、CLI 项目骨架、帮助/版本/退出码
 
 **Files:**
-- 验证/补：`BashCommandManager.csproj`（`DefaultItemExcludes`）
-- 验证/建：`tests/BashCommandManager.Tests/BashCommandManager.Tests.csproj`（#8 应已创建）
+- 验证：`BashCommandManager.csproj`（`DefaultItemExcludes`；缺失即停止，先合入 #8）
+- 验证：`tests/BashCommandManager.Tests/BashCommandManager.Tests.csproj`（#8 已创建；本计划只追加测试文件）
 - Create: `BashCommandManager.Cli/BashCommandManager.Cli.csproj`
 - Create: `tests/BashCommandManager.Cli.Tests/BashCommandManager.Cli.Tests.csproj`
 - Create: `BashCommandManager.Cli/Program.cs`
@@ -173,7 +177,7 @@ dotnet test tests\BashCommandManager.Tests\BashCommandManager.Tests.csproj
 - Test: `tests/BashCommandManager.Cli.Tests/CommandLine/CliHostHelpVersionTests.cs`
 
 **Interfaces:**
-- Consumes: #9 的 `Core/Models/TerminalKind.cs`、`Core/Models/ExecutionSettings.cs`、`Core/Services/TerminalCommandBuilder.cs`、`Core/Services/ExecutableLocator.cs`（仅源码链接，不调用）
+- Consumes: #9 的 `Core/Models/TerminalKind.cs`、`Core/Models/ExecutionSettings.cs`、`Core/Models/TerminalLaunchPlan.cs`、`Core/Services/TerminalCommandBuilder.cs`、`Core/Services/ExecutionResult.cs`、`Core/Services/ExecutableLocator.cs`（仅源码链接，本任务不调用）
 - Produces:
   - `public static class CliVersion { public static string Value { get; } }` → `"1.3.0"`
   - `public sealed record OptionSpec(string Name, bool TakesValue, string Description, bool Required = false, IReadOnlyList<string>? AllowedValues = null)`
@@ -192,48 +196,30 @@ dotnet test tests\BashCommandManager.Tests\BashCommandManager.Tests.csproj
 ```powershell
 Select-String -Path BashCommandManager.csproj -Pattern 'DefaultItemExcludes'
 Test-Path tests\BashCommandManager.Tests\BashCommandManager.Tests.csproj
-'Core\Models\TerminalKind.cs','Core\Models\ExecutionSettings.cs','Core\Services\TerminalCommandBuilder.cs','Core\Services\ExecutionResult.cs','Core\Services\ExecutableLocator.cs' |
+'Core\Models\TerminalKind.cs','Core\Models\ExecutionSettings.cs','Core\Models\TerminalLaunchPlan.cs','Core\Services\TerminalCommandBuilder.cs','Core\Services\ExecutionResult.cs','Core\Services\ExecutableLocator.cs' |
   ForEach-Object { "$_ => " + (Test-Path $_) }
 git status --short
 git branch --show-current
 ```
 
-期望：分支为 `feat/v1.3.0`；5 个 #9 文件全部 `True`。
+期望：分支为 `feat/v1.3.0`；6 个 #9 文件全部 `True`。
 若任一为 `False`：**停止**，回报 `#9 未合入，缺少 <文件名>；按 D1 必须先完成 #9`，不要创建 CLI 项目（否则 CLI 只能复制一份命令构造逻辑，违反 D2.2）。
 
-- [ ] **Step 2: 补主工程排除项与 #8 测试项目（缺失才做）**
+- [ ] **Step 2: 核对 #8 的主工程排除项与测试项目（已落地则整体跳过）**
 
-若步骤 1 的 `Select-String` 无匹配，在 `BashCommandManager.csproj` 的 `</Project>` 前追加（内容取自 D2，**只加一次**）：
+`#8` 已合入当前分支：主 csproj 的 `PropertyGroup` 内已有 `DefaultItemExcludes`（`BashCommandManager.csproj:8`），`tests/BashCommandManager.Tests/BashCommandManager.Tests.csproj` 也已存在。因此本步骤正常情况下**不做任何修改**，只核对步骤 1 的两条输出。
 
-```xml
-  <ItemGroup>
-    <DefaultItemExcludes>$(DefaultItemExcludes);tests\**;BashCommandManager.Cli\**</DefaultItemExcludes>
-  </ItemGroup>
-```
+若步骤 1 的 `Select-String` 无匹配或 `Test-Path` 为 `False`：说明当前分支不含 #8 的提交。**停止**，回报 `#8 未合入，缺少 <DefaultItemExcludes / 测试项目>；按 D1 必须先合入 #8`。不要在本计划里重建 #8 的测试基础设施（D1 规定 #8 负责首次搭建；重复创建会让同名工程出现第二套 csproj 定义）。
 
-若 `tests\BashCommandManager.Tests\BashCommandManager.Tests.csproj` 不存在（#8 未落地），按 D2 创建：
+若确需在独立分支上补 `DefaultItemExcludes`，唯一正确写法是放进 `<PropertyGroup>`（它是 **MSBuild 属性**；写进 `<ItemGroup>` 会报 `MSB4232: Target 元素之外的项目必须具有以下操作之一: Include、Update 或 Remove`）：
 
 ```xml
-<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
-    <UseWPF>true</UseWPF>
-    <IsTestProject>true</IsTestProject>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
+    <DefaultItemExcludes>$(DefaultItemExcludes);tests\**;BashCommandManager.Cli\**</DefaultItemExcludes>
   </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
-    <PackageReference Include="xunit" Version="2.5.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\BashCommandManager.csproj" />
-  </ItemGroup>
-</Project>
 ```
 
-并在提交说明里写明「T1 步骤 2 因 #8 未落地而补建」。
+（值与主 csproj 第 8 行、D2 的定义逐字一致；补完在提交说明里写明原因。）
 
 - [ ] **Step 3: 创建两个项目文件（此时还没有任何 CLI 源码）**
 
@@ -266,6 +252,8 @@ git branch --show-current
     <Compile Include="..\Core\Models\SortOptions.cs" Link="Shared\Core\Models\SortOptions.cs" />
     <Compile Include="..\Core\Models\TerminalKind.cs" Link="Shared\Core\Models\TerminalKind.cs" />
     <Compile Include="..\Core\Models\ExecutionSettings.cs" Link="Shared\Core\Models\ExecutionSettings.cs" />
+    <!-- #9 把 TerminalLaunchPlan 独立成文件；TerminalCommandBuilder.Build 的返回类型依赖它，漏链必 CS0246 -->
+    <Compile Include="..\Core\Models\TerminalLaunchPlan.cs" Link="Shared\Core\Models\TerminalLaunchPlan.cs" />
     <Compile Include="..\Core\Repositories\CommandRepository.cs" Link="Shared\Core\Repositories\CommandRepository.cs" />
     <Compile Include="..\Core\Repositories\GroupRepository.cs" Link="Shared\Core\Repositories\GroupRepository.cs" />
     <Compile Include="..\Core\Services\DatabaseService.cs" Link="Shared\Core\Services\DatabaseService.cs" />
@@ -290,6 +278,10 @@ git branch --show-current
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
+    <!-- 本计划所有 CLI 测试文件都直接用 [Fact]/[Theory]/Assert，统一在这里补全局 using，避免逐文件写 using Xunit; -->
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
     <PackageReference Include="xunit" Version="2.5.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
@@ -300,7 +292,7 @@ git branch --show-current
 </Project>
 ```
 
-- [ ] **Step 4: 写失败测试（3 个文件）**
+- [ ] **Step 4: 写失败测试（4 个文件）**
 
 `tests/BashCommandManager.Cli.Tests/CommandLine/CliVersionTests.cs`：
 
@@ -546,7 +538,12 @@ public class CliHostHelpVersionTests
 dotnet test tests\BashCommandManager.Cli.Tests\BashCommandManager.Cli.Tests.csproj -c Release
 ```
 
-期望：编译失败，错误含 `CS0246: 未能找到类型或命名空间名"CommandCatalog"`（以及 `CliHost`/`CliErrors`/`CliVersion`）。若报的是 NuGet 还原失败，先处理还原再继续。
+期望：编译失败。此时 CLI 项目**一个源码文件都还没有**，因此会同时看到两类错误，二者都算预期红：
+
+- `CS5001: 程序不包含适合于入口点的静态 "Main" 方法`（还没有 `Program.cs` 的 `Main`）；
+- `CS0246: 未能找到类型或命名空间名"CommandCatalog"`（以及 `CliHost`/`CliErrors`/`CliVersion`）。
+
+判据：报错来自 CLI/测试工程的类型缺失（`CS0246`/`CS5001`），而不是 NuGet 还原失败；若报还原失败，先处理还原再继续。
 
 - [ ] **Step 6: 实现错误类型与退出码映射**
 
@@ -830,16 +827,16 @@ public static class CommandCatalog
 
         new("commands.edit", "commands", "edit",
             "bcm commands edit <id|名称> [--name <新名称>] [--description <描述>] [--file <路径>] [--group <id|路径>] [--db <path>] [--json]",
-            "编辑命令（至少指定一项）",
+            "编辑命令（至少指定一项；--group 为目标分组，可与其它字段同时修改）",
             new[]
             {
                 new OptionSpec("name", true, "新名称"),
                 new OptionSpec("description", true, "新描述（空串表示清空）"),
                 new OptionSpec("file", true, "新文件路径（必须存在）"),
-                new OptionSpec("group", true, "移动到该分组")
+                new OptionSpec("group", true, "目标分组（移动到该分组；与 commands move 的区别是可同时改其它字段，见 VD-13）")
             },
             1, 1,
-            new[] { "bcm commands edit 7 --description \"每日 2:00\"" }),
+            new[] { "bcm commands edit 7 --description \"每日 2:00\"", "bcm commands edit 7 --group 运维 --name 每日备份" }),
 
         new("commands.delete", "commands", "delete",
             "bcm commands delete <id|名称[,..]> --force [--db <path>] [--json]",
@@ -1098,7 +1095,7 @@ internal static class Program
 }
 ```
 
-`BashCommandManager.Cli/CliHost.cs`（T1 版本；T2/T4 会继续扩展）：
+`BashCommandManager.Cli/CliHost.cs`（**全文唯一一次整文件定义**；T2/T4 只做局部替换，T12 的接线见该任务）：
 
 ```csharp
 using BashCommandManager.Cli.CommandLine;
@@ -1380,11 +1377,12 @@ public class ParserGlobalOptionTests
     }
 
     [Fact]
-    public void Database_path_is_preserved_verbatim()
+    public void Database_path_is_absolutized_against_current_directory()
     {
         var parsed = CommandLineParser.Parse(new[] { "groups", "list", "--db", @"..\tmp\x.db" }, _ => false);
 
-        Assert.Equal(@"..\tmp\x.db", parsed.DatabasePath);
+        // 实现（T2 步骤 4 的 Path.GetFullPath）与 spec 154-162「相对路径按 CurrentDirectory 转绝对」一致
+        Assert.Equal(Path.GetFullPath(@"..\tmp\x.db"), parsed.DatabasePath);
     }
 
     [Fact]
@@ -1733,9 +1731,11 @@ git commit -m "feat(cli): 手写参数解析器支持全局选项与 19 条命�
 - Create: `BashCommandManager.Cli/Application/HotkeySpec.cs`
 - Test: `tests/BashCommandManager.Cli.Tests/CommandLine/ParserValidationTests.cs`
 - Test: `tests/BashCommandManager.Cli.Tests/Application/HotkeySpecTests.cs`
+- Test: `tests/BashCommandManager.Tests/Core/HotkeyKeyMapTests.cs`（GUI 测试工程：与 WPF `Key` 枚举交叉断言）
+- Modify: `tests/BashCommandManager.Tests/BashCommandManager.Tests.csproj`（`Compile Link` 引入 `HotkeyKeyMap.cs`，见 VD-11）
 
 **Interfaces:**
-- Consumes: `CommandLineParser.Parse`、`CliErrors`
+- Consumes: `CommandLineParser.Parse`、`CliErrors`；GUI 测试工程额外消费 WPF `System.Windows.Input.Key`（仅测试侧，CLI 程序集仍 WPF-free）
 - Produces:
   - `public static class HotkeyKeyMap { public static bool TryGetValue(string name, out int virtualKey); public static int GetValue(string name); public static string GetName(int virtualKey); public static IReadOnlyCollection<string> Names { get; } }`
   - `public sealed class HotkeySpec { public int Key; public int Modifiers; public string KeyName; public string Display; public static HotkeySpec Create(int key, int modifiers); public static HotkeySpec Parse(string text); }`
@@ -2031,13 +2031,58 @@ public class ParserValidationTests
 }
 ```
 
+`tests/BashCommandManager.Tests/Core/HotkeyKeyMapTests.cs`（GUI 测试工程有 WPF，能拿到真实的 `Key` 枚举）：
+
+```csharp
+using BashCommandManager.Cli.Application;
+using System.Windows.Input;
+using Xunit;
+
+namespace BashCommandManager.Tests.Core;
+
+/// <summary>把 CLI 手写键码表与 WPF Key 枚举逐值交叉断言；键语义若漂移会立刻红。</summary>
+public class HotkeyKeyMapTests
+{
+    [Theory]
+    [InlineData("A", 44)]
+    [InlineData("Z", 69)]
+    [InlineData("D0", 34)]
+    [InlineData("F1", 90)]
+    [InlineData("Space", 18)]
+    [InlineData("Enter", 6)]
+    public void Sample_keys_match_wpf_enum(string name, int expected)
+    {
+        Assert.Equal((int)Enum.Parse<Key>(name, ignoreCase: true), HotkeyKeyMap.GetValue(name));
+        Assert.Equal(expected, HotkeyKeyMap.GetValue(name));
+    }
+
+    [Fact]
+    public void Every_named_key_matches_wpf_enum()
+    {
+        // "0".."9" 是 CLI 额外接受的数字别名，不是 Key 的枚举名，跳过
+        foreach (var name in HotkeyKeyMap.Names.Where(name => !char.IsDigit(name[0])))
+        {
+            Assert.Equal((int)Enum.Parse<Key>(name, ignoreCase: true), HotkeyKeyMap.GetValue(name));
+        }
+    }
+}
+```
+
+`tests/BashCommandManager.Tests/BashCommandManager.Tests.csproj` 的 `</Project>` 前追加（把 CLI 的键码表**源码**编入测试工程，不引用 CLI 可执行工程）：
+
+```xml
+  <ItemGroup>
+    <Compile Include="..\..\BashCommandManager.Cli\Application\HotkeyKeyMap.cs" Link="Shared\HotkeyKeyMap.cs" />
+  </ItemGroup>
+```
+
 - [ ] **Step 2: 跑测试确认失败**
 
 ```powershell
 dotnet test tests\BashCommandManager.Cli.Tests\BashCommandManager.Cli.Tests.csproj -c Release --filter "FullyQualifiedName~ParserValidationTests|FullyQualifiedName~HotkeySpecTests"
 ```
 
-期望：编译失败 `CS0246: 未能找到类型或命名空间名"HotkeySpec"`（`ParserValidationTests` 也会因行为未实现而失败，待实现后转绿）。
+期望：CLI 测试工程编译失败 `CS0246: 未能找到类型或命名空间名"HotkeySpec"`（`ParserValidationTests` 也会因行为未实现而失败，待实现后转绿）；GUI 测试工程此时因 `HotkeyKeyMap.cs` 还不存在而报 `CS2001: 未能找到源文件`（Step 3 创建该文件后消失），Step 6 两个工程一起转绿。
 
 - [ ] **Step 3: 实现 HotkeyKeyMap**
 
@@ -2426,9 +2471,10 @@ public sealed class HotkeySpec
 
 ```powershell
 dotnet test tests\BashCommandManager.Cli.Tests\BashCommandManager.Cli.Tests.csproj -c Release
+dotnet test tests\BashCommandManager.Tests\BashCommandManager.Tests.csproj --filter "FullyQualifiedName~HotkeyKeyMapTests"
 ```
 
-期望：全部 Passed。重点确认 `Delete_without_force_requires_confirmation`、`Admin_with_wait_is_usage_error`、`Db_pointing_to_directory_is_usage_error` 三条通过。
+期望：CLI 侧全部 Passed。重点确认 `Delete_without_force_requires_confirmation`、`Admin_with_wait_is_usage_error`、`Db_pointing_to_directory_is_usage_error` 三条通过；GUI 侧 `HotkeyKeyMapTests` 汇总为 `Passed: 7`（6 个 `InlineData` 用例 + 1 个遍历用例）。
 
 - [ ] **Step 7: 手工验证三类错误**
 
@@ -2444,7 +2490,7 @@ $exe = ".\BashCommandManager.Cli\bin\Release\net8.0-windows\bcm.exe"
 - [ ] **Step 8: 提交**
 
 ```powershell
-git add BashCommandManager.Cli tests\BashCommandManager.Cli.Tests
+git add BashCommandManager.Cli tests\BashCommandManager.Cli.Tests tests\BashCommandManager.Tests
 git commit -m "feat(cli): 参数语义校验覆盖必填/枚举/冲突/超时与 --force"
 ```
 
@@ -2464,7 +2510,7 @@ git commit -m "feat(cli): 参数语义校验覆盖必填/枚举/冲突/超时与
 - Consumes: `CliError`/`CliFailureException`、`JsonEnvelope`、`BashCommandManager.Core.Models.Group`/`Command`
 - Produces:
   - `public sealed record CliResult(JsonNode? Data, JsonObject? Meta = null, string? HumanText = null) { public static CliResult Object(JsonObject data, string? humanText = null); public static CliResult Items(JsonArray items, string? humanText = null); }`
-  - `public static class JsonShapes { public static JsonObject Group(Group group, int commandCount); public static JsonObject Command(Command command, string? groupName, bool includeFileExists, Func<string,bool> fileExists); public static string FormatTimestamp(DateTime? value); }`
+  - `public static class JsonShapes { public static JsonObject Group(Group group, int commandCount); public static JsonObject GroupNode(Group group); public static JsonObject Command(Command command, string? groupName, bool includeFileExists, Func<string,bool> fileExists); public static string FormatTimestamp(DateTime? value); }`
   - `public static class TableWriter { public static string Render(IReadOnlyList<string> headers, IReadOnlyList<IReadOnlyList<string>> rows); public static int DisplayWidth(string text); }`
   - `public interface IOutputWriter { void WriteResult(CliResult result, JsonObject? meta); void WriteError(CliError error); }`
   - `public sealed class OutputWriter : IOutputWriter { public OutputWriter(TextWriter stdout, TextWriter stderr, bool json); }`
@@ -2502,7 +2548,8 @@ public class TableWriterTests
     public void Counts_cjk_characters_as_two_columns()
     {
         Assert.Equal(2, TableWriter.DisplayWidth("备"));
-        Assert.Equal(6, TableWriter.DisplayWidth("备份"));
+        Assert.Equal(4, TableWriter.DisplayWidth("备份"));
+        Assert.Equal(6, TableWriter.DisplayWidth("备份库"));
         Assert.Equal(3, TableWriter.DisplayWidth("abc"));
     }
 
@@ -2714,7 +2761,8 @@ public class OutputWriterTests
 
         writer.WriteResult(CliResult.Items(data), null);
 
-        var lines = stdout.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+        // TableWriter 只用 '\n' 作行分隔（见 T4 步骤 4 的说明），不能按 Windows 的 '\r\n' 切分
+        var lines = stdout.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries);
         Assert.Equal("Id  Name  Group  FilePath", lines[0]);
         Assert.Contains("备份", lines[1]);
         Assert.Contains(@"D:\bat\备份.bat", lines[1]);
@@ -3039,22 +3087,19 @@ public sealed class OutputWriter : IOutputWriter
 }
 ```
 
-- [ ] **Step 6: CliHost 改用 OutputWriter（完整文件）**
+- [ ] **Step 6: CliHost 局部替换为 OutputWriter（不要整文件重写）**
+
+`CliHost.cs` 的整文件定义只在 T1 步骤 8 出现一次（T2 步骤 5 已做过一次局部替换）。本步骤只做三处**局部修改**，其余行保持原样。
+
+1）在 `using BashCommandManager.Cli.Output;` 之后插入一行（下面的 `catch (SQLiteException)` 需要）：
 
 ```csharp
-using BashCommandManager.Cli.CommandLine;
-using BashCommandManager.Cli.Infrastructure;
-using BashCommandManager.Cli.Output;
 using System.Data.SQLite;
-using System.Text.Json.Nodes;
+```
 
-namespace BashCommandManager.Cli;
+2）把 `Run(string[] args, TextWriter stdout, TextWriter stderr, Stream? stderrBytes = null)` 的**整个方法**（从方法签名到它的闭合 `}`）替换为：
 
-/// <summary>CLI 的唯一入口编排与异常边界。</summary>
-public static class CliHost
-{
-    public static int Run(string[] args) => Run(args, Console.Out, Console.Error, Console.OpenStandardError());
-
+```csharp
     public static int Run(string[] args, TextWriter stdout, TextWriter stderr, Stream? stderrBytes = null)
     {
         var wantsJson = args.Any(arg => string.Equals(arg, "--json", StringComparison.Ordinal));
@@ -3077,11 +3122,13 @@ public static class CliHost
 
             if (parsed.CommandPath == "version")
             {
-                output.WriteResult(new CliResult(new JsonObject { ["version"] = CliVersion.Value }, null, CliVersion.Value), null);
+                output.WriteResult(
+                    new CliResult(new JsonObject { ["version"] = CliVersion.Value }, null, CliVersion.Value),
+                    null);
                 return 0;
             }
 
-            throw CliErrors.Usage($"命令尚未接线: {parsed.CommandPath}", "T7 起由 CliDispatcher 处理");
+            throw CliErrors.Usage($"命令尚未接线: {parsed.CommandPath}", "T12 起由 CliDispatcher 处理");
         }
         catch (CliFailureException ex)
         {
@@ -3101,8 +3148,11 @@ public static class CliHost
             return error.ExitCode;
         }
     }
-}
 ```
+
+3）**删除**文件末尾的 `private static void WriteError(TextWriter stderr, CliError error, bool json)` 整个方法（错误输出已由 `OutputWriter` 负责）；`Run(string[] args)`（表达式体那行）与 `public static class CliHost` 声明保持不变。
+
+> 替换后自检：全文件搜 `WriteError(` 应为 0 命中（方法已删、调用已改走 `OutputWriter`）；搜 `args.Contains` 应为 0 命中（T2 已移除）；`using System.Text.Json.Nodes;` 必须保留（version 分支仍用 `JsonObject`）。本步骤结束时 `CliHost.cs` 仍只有一份 `CliHost` 定义。
 
 - [ ] **Step 7: 跑测试确认通过**
 
@@ -3143,7 +3193,7 @@ git commit -m "feat(cli): 统一 JSON 信封与人类可读输出层"
   - `public enum DatabasePathSource { Argument, Environment, LocalAppData, LegacyApplicationDirectory }`
   - `public sealed record DatabasePathResolution(string DatabasePath, DatabasePathSource Source, string? LegacyPath, bool RequiresMigration)`
   - `public sealed record DatabasePreparationResult(string DatabasePath, bool Migrated, string? Warning)`
-  - `public static class DatabasePathResolver { public const string EnvironmentVariableName = "BASHCOMMANDMANAGER_DB"; public static string SettingsDirectory { get; } public static string CanonicalDatabasePath { get; } public static string LegacyDatabasePath { get; } public static DatabasePathResolution Resolve(string? explicitPath, string? environmentValue, Func<string,bool> fileExists, string? settingsDirectory = null, string? legacyDatabasePath = null); public static DatabasePathResolution ResolveForCurrentProcess(string? explicitPath = null); }`
+  - `public static class DatabasePathResolver { public const string EnvironmentVariableName = "BASHCOMMANDMANAGER_DB"; public static string SettingsDirectory { get; } public static string CanonicalDatabasePath { get; } public static string LegacyDatabasePath { get; } public static DatabasePathResolution Resolve(string? explicitPath, string? environmentValue, Func<string,bool> fileExists, string? settingsDirectory = null, string? legacyDatabasePath = null); public static DatabasePathResolution ResolveForCurrentProcess(string? explicitPath = null, string? settingsDirectory = null); }`
   - `public static class DatabaseMigrator { public static DatabasePreparationResult Prepare(DatabasePathResolution resolution, Action<string,string>? copyDatabase = null, Action<string>? createDirectory = null); }`
 
 - [ ] **Step 1: 写失败测试**
@@ -3152,6 +3202,7 @@ git commit -m "feat(cli): 统一 JSON 信封与人类可读输出层"
 
 ```csharp
 using BashCommandManager.Infrastructure;
+using Xunit;
 
 namespace BashCommandManager.Tests.Infrastructure;
 
@@ -3253,6 +3304,7 @@ public class DatabasePathResolverTests
 ```csharp
 using BashCommandManager.Infrastructure;
 using System.Data.SQLite;
+using Xunit;
 
 namespace BashCommandManager.Tests.Infrastructure;
 
@@ -3470,8 +3522,9 @@ public static class DatabasePathResolver
         return new DatabasePathResolution(canonical, DatabasePathSource.LocalAppData, legacy, false);
     }
 
-    public static DatabasePathResolution ResolveForCurrentProcess(string? explicitPath = null)
-        => Resolve(explicitPath, Environment.GetEnvironmentVariable(EnvironmentVariableName), File.Exists);
+    // settingsDirectory 由 CLI 传 CliPaths.SettingsDirectory；为 null 时回落到 %LOCALAPPDATA%
+    public static DatabasePathResolution ResolveForCurrentProcess(string? explicitPath = null, string? settingsDirectory = null)
+        => Resolve(explicitPath, Environment.GetEnvironmentVariable(EnvironmentVariableName), File.Exists, settingsDirectory);
 }
 
 /// <summary>把旧库一次性复制到规范位置；失败回退旧库并给告警。</summary>
@@ -3523,7 +3576,8 @@ public static class DatabaseMigrator
         }
         catch (Exception ex)
         {
-            TryDelete(tempPath);
+            // 清理只做兜底：TryDeleteQuietly 不会再抛，保证一定返回「回退旧库」结果
+            TryDeleteQuietly(tempPath);
             return new DatabasePreparationResult(legacyPath, false, $"数据库迁移失败，已回退使用旧库: {ex.Message}");
         }
     }
@@ -3538,6 +3592,12 @@ public static class DatabaseMigrator
         source.BackupDatabase(target, "main", "main", -1, null, 0);
     }
 
+    /// <summary>
+    /// 尽力删除迁移临时文件，只用于清理，不参与成功/失败判定。
+    /// 吞掉：IOException（含 FileNotFound/DirectoryNotFound/PathTooLong 与文件被占用）、
+    /// UnauthorizedAccessException（只读/权限不足）。
+    /// 上抛：ArgumentException、NotSupportedException 等路径编程错误 —— 这类错误说明调用方拼错了路径，应立即暴露。
+    /// </summary>
     private static void TryDelete(string path)
     {
         try
@@ -3550,9 +3610,28 @@ public static class DatabaseMigrator
         catch (IOException)
         {
         }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
+
+    /// <summary>Prepare 的 catch 分支专用：清理异常一律吞掉，绝不覆盖原始迁移错误（保证能返回回退结果）。</summary>
+    private static void TryDeleteQuietly(string path)
+    {
+        try
+        {
+            TryDelete(path);
+        }
+        catch (Exception)
+        {
+        }
     }
 }
 ```
+
+> `TryDelete` 的异常面（写实现时不要只 catch `IOException`）：**吞掉** `IOException`（含 `FileNotFoundException`/`DirectoryNotFoundException`/`PathTooLongException`、临时文件被占用）与 `UnauthorizedAccessException`（只读/权限不足）；**上抛** `ArgumentException`/`NotSupportedException` 等路径编程错误。`Prepare` 的 `catch (Exception)` 分支只调用不会再抛的 `TryDeleteQuietly`，保证「迁移失败必须回退旧库」不会被清理异常打断。
+>
+> `ResolveForCurrentProcess` 新增可选参数 `settingsDirectory`：`DatabaseInitializer` 会在构造时把 `CliPaths.SettingsDirectory`（含 `BASHCOMMANDMANAGER_SETTINGS_DIR` 覆盖）传进来，从而让目录覆盖同时作用于数据库（VD-6 / B-8）。
 
 - [ ] **Step 4: 把解析器/迁移器加入 CLI 的源码链接清单**
 
@@ -3588,9 +3667,9 @@ git commit -m "feat(cli): 新增 GUI/CLI 共用的数据库路径解析与迁移
 - Test: `tests/BashCommandManager.Tests/Infrastructure/DatabaseInitializerTests.cs`
 
 **Interfaces:**
-- Consumes: `DatabasePathResolver.ResolveForCurrentProcess`、`DatabaseMigrator.Prepare`
+- Consumes: `DatabasePathResolver.ResolveForCurrentProcess`（含 `settingsDirectory` 重载）、`DatabaseMigrator.Prepare`
 - Produces:
-  - `public DatabaseInitializer(string? explicitDatabasePath = null)`
+  - `public DatabaseInitializer(string? explicitDatabasePath = null, string? settingsDirectory = null)`
   - `public string DatabasePath { get; }`
   - `public string? MigrationWarning { get; }`
   - `public DatabasePathSource Source { get; }`
@@ -3598,16 +3677,21 @@ git commit -m "feat(cli): 新增 GUI/CLI 共用的数据库路径解析与迁移
   - `public string ConnectionString`（含 `Foreign Keys=True`）
   - `public void Initialize()`（签名不变）
 
+> `settingsDirectory` 为 `null` 时等于 `DatabasePathResolver.SettingsDirectory`（即 `%LOCALAPPDATA%\BashCommandManager`）；非 `null` 时（CLI 传 `CliPaths.SettingsDirectory`），未显式指定 `--db`/`BASHCOMMANDMANAGER_DB` 的数据库解析为 `<settingsDirectory>\data\app.db`。这样 `BASHCOMMANDMANAGER_SETTINGS_DIR` 能同时隔离 `settings.json` 与数据库（VD-6 / B-8）。
+
 - [ ] **Step 1: 写失败测试**
 
 `tests/BashCommandManager.Tests/Infrastructure/DatabaseInitializerTests.cs`：
 
 ```csharp
 using BashCommandManager.Infrastructure;
+using BashCommandManager.Tests.TestSupport;
 using System.Data.SQLite;
+using Xunit;
 
 namespace BashCommandManager.Tests.Infrastructure;
 
+[Collection(EnvironmentCollection.Name)] // 会改进程级 BASHCOMMANDMANAGER_DB，禁止并行
 public class DatabaseInitializerTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "bcm-initializer-" + Guid.NewGuid().ToString("N"));
@@ -3685,6 +3769,30 @@ public class DatabaseInitializerTests : IDisposable
         Assert.Equal(0L, Convert.ToInt64(count.ExecuteScalar()));
     }
 
+    [Fact]
+    public void Settings_directory_redirects_database_when_no_explicit_path()
+    {
+        var settingsDirectory = Path.Combine(_root, "settings");
+        var previous = Environment.GetEnvironmentVariable(DatabasePathResolver.EnvironmentVariableName);
+        Environment.SetEnvironmentVariable(DatabasePathResolver.EnvironmentVariableName, null);
+        try
+        {
+            var initializer = new DatabaseInitializer(settingsDirectory: settingsDirectory);
+
+            Assert.Equal(Path.Combine(settingsDirectory, "data", "app.db"), initializer.DatabasePath);
+            Assert.Equal(DatabasePathSource.LocalAppData, initializer.Source);
+
+            initializer.Initialize();
+
+            Assert.True(File.Exists(Path.Combine(settingsDirectory, "data", "app.db")));
+            Assert.Null(initializer.MigrationWarning);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(DatabasePathResolver.EnvironmentVariableName, previous);
+        }
+    }
+
     public void Dispose()
     {
         SQLiteConnection.ClearAllPools();
@@ -3699,13 +3807,28 @@ public class DatabaseInitializerTests : IDisposable
 }
 ```
 
+`tests/BashCommandManager.Tests/TestSupport/EnvironmentCollection.cs`（GUI 测试工程自己的串行集合；CLI 测试工程有一份同名同内容的副本）：
+
+```csharp
+using Xunit;
+
+namespace BashCommandManager.Tests.TestSupport;
+
+/// <summary>会改进程级环境变量的测试归到此集合，禁止与其他集合并行，避免互相污染。</summary>
+[CollectionDefinition("Environment", DisableParallelization = true)]
+public sealed class EnvironmentCollection
+{
+    public const string Name = "Environment";
+}
+```
+
 - [ ] **Step 2: 跑测试确认失败**
 
 ```powershell
 dotnet test tests\BashCommandManager.Tests\BashCommandManager.Tests.csproj --filter "FullyQualifiedName~DatabaseInitializerTests"
 ```
 
-期望：`Failed`——`Assert.Contains("Foreign Keys=True", ...)` 失败（现有连接串没有该项），且 `DatabaseInitializer(DatabasePath)` 无法编译（没有该构造函数）。
+期望：编译失败 `CS1739`（`new DatabaseInitializer(settingsDirectory: ...)` 没有该参数）；修好签名后，`Assert.Contains("Foreign Keys=True", ...)` 与新的 `Settings_directory_redirects_database_when_no_explicit_path` 会先红后绿。
 
 - [ ] **Step 3: 改造 DatabaseInitializer**
 
@@ -3720,9 +3843,9 @@ namespace BashCommandManager.Infrastructure;
 /// <summary>数据库初始化：解析路径 → 必要时迁移 → 幂等建表。</summary>
 public class DatabaseInitializer
 {
-    public DatabaseInitializer(string? explicitDatabasePath = null)
+    public DatabaseInitializer(string? explicitDatabasePath = null, string? settingsDirectory = null)
     {
-        Resolution = DatabasePathResolver.ResolveForCurrentProcess(explicitDatabasePath);
+        Resolution = DatabasePathResolver.ResolveForCurrentProcess(explicitDatabasePath, settingsDirectory);
         var prepared = DatabaseMigrator.Prepare(Resolution);
         DatabasePath = prepared.DatabasePath;
         MigrationWarning = prepared.Warning;
@@ -3811,18 +3934,21 @@ git commit -m "feat(cli): DatabaseInitializer 支持注入路径、外键级联�
 - Create: `BashCommandManager.Cli/Infrastructure/CliPaths.cs`
 - Create: `BashCommandManager.Cli/Application/CliCommandStore.cs`
 - Create: `tests/BashCommandManager.Cli.Tests/TestSupport/TempDatabase.cs`
+- Create: `tests/BashCommandManager.Cli.Tests/TestSupport/EnvironmentCollection.cs`
 - Test: `tests/BashCommandManager.Cli.Tests/Operations/DatabaseSessionTests.cs`
 - Test: `tests/BashCommandManager.Cli.Tests/Application/CliCommandStoreTests.cs`
 
 **Interfaces:**
-- Consumes: `DatabaseInitializer`、`CommandRepository`、`GroupRepository`、`CliErrors`
+- Consumes: `DatabaseInitializer`、`CommandRepository`、`GroupRepository`、`CliErrors`、`CliPaths`（把 settings 目录覆盖透传给 `DatabaseInitializer`）
 - Produces:
   - `public sealed class DatabaseSession : IDisposable { public DatabaseSession(string? explicitDatabasePath); public string DatabasePath; public string? MigrationWarning; public DatabasePathSource Source; public bool Created; public string ConnectionString; public IDbConnection Connection; public DatabasePathResolution Resolution; public void Dispose(); }`
   - `public sealed class CliCommandStore { public CliCommandStore(IDbConnection db); 方法见 Step 4 完整代码 }`
   - `public static class CliPaths { public const string SettingsDirectoryVariable = "BASHCOMMANDMANAGER_SETTINGS_DIR"; public static string SettingsDirectory { get; } }`
   - `internal sealed class TempDatabase : IDisposable`（测试支持）
 
-> `CliServices`（处理器依赖容器）在 **Task 10** 一次性引入：它依赖 T8 的 `CommandResolver` 与 T17/T21 的 `IProcessRunner`/`IGuiLauncher`/`IExecutableLocator`，过早创建会反复改签名。本任务的 `CliHost` 仍只处理 help/version/未接线错误。
+> `DatabaseSession` 构造时调用 `new DatabaseInitializer(explicitDatabasePath, CliPaths.SettingsDirectory)`：`--db`/`BASHCOMMANDMANAGER_DB` 仍然优先，其次才落到 `<CliPaths.SettingsDirectory>\data\app.db`，因此 `BASHCOMMANDMANAGER_SETTINGS_DIR` 能同时隔离 `settings.json` 与数据库（VD-6 / B-8）。
+>
+> `CliServices`（处理器依赖容器）在 **Task 12** 一次性引入：它依赖 T8 的 `CommandResolver` 与 T9/T11 的 `IProcessRunner`/`IGuiLauncher`，过早创建会反复改签名。本任务的 `CliHost` 仍只处理 help/version/未接线错误。
 
 - [ ] **Step 1: 写失败测试**
 
@@ -3887,6 +4013,7 @@ using Dapper;
 
 namespace BashCommandManager.Cli.Tests.Operations;
 
+[Collection(EnvironmentCollection.Name)] // 会改进程级 BASHCOMMANDMANAGER_DB / BASHCOMMANDMANAGER_SETTINGS_DIR，禁止并行
 public class DatabaseSessionTests
 {
     [Fact]
@@ -3956,6 +4083,44 @@ public class DatabaseSessionTests
             Environment.SetEnvironmentVariable(DatabasePathResolver.EnvironmentVariableName, previous);
         }
     }
+
+    [Fact]
+    public void Settings_directory_override_isolates_database_when_no_explicit_path()
+    {
+        using var temp = new TempDatabase();
+        var settingsDirectory = temp.CreateDirectory("settings");
+        var previousSettings = Environment.GetEnvironmentVariable(CliPaths.SettingsDirectoryVariable);
+        var previousDatabase = Environment.GetEnvironmentVariable(DatabasePathResolver.EnvironmentVariableName);
+        Environment.SetEnvironmentVariable(CliPaths.SettingsDirectoryVariable, settingsDirectory);
+        Environment.SetEnvironmentVariable(DatabasePathResolver.EnvironmentVariableName, null);
+        try
+        {
+            using var session = new DatabaseSession(null);
+
+            // BASHCOMMANDMANAGER_SETTINGS_DIR 同时隔离 settings.json 与数据库（VD-6 / B-8）
+            Assert.Equal(Path.Combine(settingsDirectory, "data", "app.db"), session.DatabasePath);
+            Assert.True(File.Exists(session.DatabasePath));
+            Assert.Equal(DatabasePathSource.LocalAppData, session.Source);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(CliPaths.SettingsDirectoryVariable, previousSettings);
+            Environment.SetEnvironmentVariable(DatabasePathResolver.EnvironmentVariableName, previousDatabase);
+        }
+    }
+}
+```
+
+`tests/BashCommandManager.Cli.Tests/TestSupport/EnvironmentCollection.cs`（`Xunit` 已由测试工程的全局 using 引入）：
+
+```csharp
+namespace BashCommandManager.Cli.Tests.TestSupport;
+
+/// <summary>会改进程级环境变量的测试归到此集合，禁止与其他集合并行，避免互相污染。</summary>
+[CollectionDefinition("Environment", DisableParallelization = true)]
+public sealed class EnvironmentCollection
+{
+    public const string Name = "Environment";
 }
 ```
 
@@ -3984,8 +4149,9 @@ public class CliCommandStoreTests
         var second = await store.CreateGroupAsync("测试", 1);
 
         var groups = await store.GetGroupsAsync();
-        Assert.Equal(1, groups.Single(group => group.Id == first).SortOrder);
-        Assert.Equal(2, groups.Single(group => group.Id == second).SortOrder);
+        // SortOrder 是 0 基（与 GUI GroupService.CreateGroupAsync 的 siblings.Count() 一致，spec 182 也写 sortOrder:0）
+        Assert.Equal(0, groups.Single(group => group.Id == first).SortOrder);
+        Assert.Equal(1, groups.Single(group => group.Id == second).SortOrder);
     }
 
     [Fact]
@@ -4183,7 +4349,8 @@ public sealed class DatabaseSession : IDisposable
 
     public DatabaseSession(string? explicitDatabasePath)
     {
-        var initializer = new DatabaseInitializer(explicitDatabasePath);
+        // settings 目录覆盖（BASHCOMMANDMANAGER_SETTINGS_DIR）同样作用于数据库解析（VD-6 / B-8）
+        var initializer = new DatabaseInitializer(explicitDatabasePath, CliPaths.SettingsDirectory);
         Resolution = initializer.Resolution;
         DatabasePath = initializer.DatabasePath;
         MigrationWarning = initializer.MigrationWarning;
@@ -4798,7 +4965,7 @@ public sealed class CommandResolver
 dotnet test tests\BashCommandManager.Cli.Tests\BashCommandManager.Cli.Tests.csproj -c Release --filter "FullyQualifiedName~CommandResolverTests"
 ```
 
-期望：`Passed! - Failed: 0, Passed: 11`。
+期望：`Passed! - Failed: 0, Passed: 10`（与本文件 `CommandResolverTests` 的 10 个 `[Fact]` 一一对应）。
 
 - [ ] **Step 5: 提交**
 
@@ -5257,7 +5424,28 @@ public class CliSettingsStoreTests
 
         var root = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
         Assert.NotNull(root["Hotkey"]);
+        Assert.True(root["Hotkey"]!["Enabled"]!.GetValue<bool>());
         Assert.Equal(57, root["Hotkey"]!["Key"]!.GetValue<int>());
+        Assert.Equal(6, root["Hotkey"]!["Modifiers"]!.GetValue<int>());
+        Assert.Null(root["Key"]); // 不再把扁平键混进嵌套文档（D3 / VD-10）
+    }
+
+    [Fact]
+    public void Nested_document_without_hotkey_node_still_writes_nested()
+    {
+        var (store, path) = Create("""
+        {
+          "Execution": { "Terminal": 0, "CustomExecutablePath": "", "ArgumentsTemplate": "/k {file}", "KeepWindowOpen": true, "RunAsAdministrator": false }
+        }
+        """);
+
+        store.SetHotkey(new HotkeyConfig(true, 57, 6));
+
+        var root = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+        Assert.Equal(57, root["Hotkey"]!["Key"]!.GetValue<int>());
+        Assert.Equal(6, root["Hotkey"]!["Modifiers"]!.GetValue<int>());
+        Assert.Null(root["Key"]);
+        Assert.Equal(0, root["Execution"]!["Terminal"]!.GetValue<int>());
     }
 
     [Fact]
@@ -5379,17 +5567,25 @@ public sealed class CliSettingsStore : ICliSettingsStore
     public void SetHotkey(HotkeyConfig hotkey)
     {
         var root = LoadRoot() ?? new JsonObject();
-        if (root["Hotkey"] is JsonObject nested)
+        if (IsFlatHotkeyDocument(root))
         {
-            nested["Enabled"] = hotkey.Enabled;
-            nested["Key"] = hotkey.Key;
-            nested["Modifiers"] = hotkey.Modifiers;
-        }
-        else
-        {
+            // 旧扁平文档：保持扁平（迁移由 #9 的 SettingsService 负责），避免突然改形状
             root["Enabled"] = hotkey.Enabled;
             root["Key"] = hotkey.Key;
             root["Modifiers"] = hotkey.Modifiers;
+        }
+        else
+        {
+            // D3 唯一形状：文件不存在 / 空对象 / 已是嵌套文档（即使缺 Hotkey 节点）都写 { "Hotkey": {...} }
+            var nested = root["Hotkey"] as JsonObject;
+            if (nested is null)
+            {
+                nested = new JsonObject();
+                root["Hotkey"] = nested;
+            }
+            nested["Enabled"] = hotkey.Enabled;
+            nested["Key"] = hotkey.Key;
+            nested["Modifiers"] = hotkey.Modifiers;
         }
         Save(root);
     }
@@ -5454,6 +5650,13 @@ public sealed class CliSettingsStore : ICliSettingsStore
         }
     }
 
+    // 旧扁平格式：根上直接有 Enabled/Key/Modifiers，且没有 Hotkey/Execution 段。
+    // 其余情况（空文件、{}、只有 Execution、或已是嵌套）一律按 D3 的嵌套形状写。
+    private static bool IsFlatHotkeyDocument(JsonObject root)
+        => root["Hotkey"] is not JsonObject
+           && root["Execution"] is not JsonObject
+           && (root.ContainsKey("Enabled") || root.ContainsKey("Key") || root.ContainsKey("Modifiers"));
+
     private static int ReadInt(JsonNode? node, int fallback)
         => node is JsonValue value && value.TryGetValue<int>(out var number) ? number : fallback;
 
@@ -5477,7 +5680,7 @@ public sealed class CliSettingsStore : ICliSettingsStore
 dotnet test tests\BashCommandManager.Cli.Tests\BashCommandManager.Cli.Tests.csproj -c Release --filter "FullyQualifiedName~CliSettingsStoreTests"
 ```
 
-期望：`Passed! - Failed: 0, Passed: 10`。
+期望：`Passed! - Failed: 0, Passed: 11`（10 个原有 `[Fact]` + 新增的 `Nested_document_without_hotkey_node_still_writes_nested`）。
 
 - [ ] **Step 5: 提交**
 
@@ -5492,13 +5695,16 @@ git commit -m "feat(cli): settings.json 就地读写，兼容扁平与嵌套格�
 
 **Files:**
 - Create: `BashCommandManager.Cli/Infrastructure/GuiLauncher.cs`
+- Create: `tests/BashCommandManager.Cli.Tests/TestSupport/FakeGuiProcessStarter.cs`
 - Test: `tests/BashCommandManager.Cli.Tests/Infrastructure/GuiLauncherTests.cs`
 
 **Interfaces:**
-- Consumes: 无
+- Consumes: `System.Diagnostics.ProcessStartInfo`（`Launch` 的启动参数）
 - Produces:
+  - `public interface IGuiProcessStarter { Process? Start(ProcessStartInfo startInfo); }`（可测缝：单测只断言参数，不真的起进程）
+  - `public sealed class ProcessGuiStarter : IGuiProcessStarter { public Process? Start(ProcessStartInfo startInfo); }`（默认实现）
   - `public interface IGuiLauncher { string? ResolveGuiPath(string? explicitPath); int Launch(string guiPath, int? commandId); }`
-  - `public sealed class GuiLauncher : IGuiLauncher { public GuiLauncher(Func<string,string?>? getEnvironmentVariable = null, string? cliDirectory = null, Func<string,bool>? fileExists = null); }`
+  - `public sealed class GuiLauncher : IGuiLauncher { public GuiLauncher(Func<string,string?>? getEnvironmentVariable = null, string? cliDirectory = null, Func<string,bool>? fileExists = null, IGuiProcessStarter? processStarter = null); }`
 
 - [ ] **Step 1: 写失败测试**
 
@@ -5506,6 +5712,7 @@ git commit -m "feat(cli): settings.json 就地读写，兼容扁平与嵌套格�
 
 ```csharp
 using BashCommandManager.Cli.Infrastructure;
+using BashCommandManager.Cli.Tests.TestSupport;
 
 namespace BashCommandManager.Cli.Tests.Infrastructure;
 
@@ -5565,6 +5772,53 @@ public class GuiLauncherTests
 
         Assert.Null(launcher.ResolveGuiPath(null));
     }
+
+    [Fact]
+    public void Launch_passes_command_id_as_startup_argument()
+    {
+        var starter = new FakeGuiProcessStarter();
+        var launcher = new GuiLauncher(cliDirectory: CliDir, fileExists: _ => true, processStarter: starter);
+
+        var processId = launcher.Launch(@"C:\Apps\BashCommandManager.exe", 7);
+
+        Assert.Equal(0, processId);
+        var startInfo = Assert.Single(starter.StartInfos);
+        Assert.Equal(@"C:\Apps\BashCommandManager.exe", startInfo.FileName);
+        Assert.Equal("--command 7", startInfo.Arguments);
+        Assert.True(startInfo.UseShellExecute);
+    }
+
+    [Fact]
+    public void Launch_without_command_id_passes_empty_arguments()
+    {
+        var starter = new FakeGuiProcessStarter();
+        var launcher = new GuiLauncher(cliDirectory: CliDir, fileExists: _ => true, processStarter: starter);
+
+        launcher.Launch(@"C:\Apps\BashCommandManager.exe", null);
+
+        Assert.Equal(string.Empty, Assert.Single(starter.StartInfos).Arguments);
+    }
+}
+```
+
+`tests/BashCommandManager.Cli.Tests/TestSupport/FakeGuiProcessStarter.cs`：
+
+```csharp
+using BashCommandManager.Cli.Infrastructure;
+using System.Diagnostics;
+
+namespace BashCommandManager.Cli.Tests.TestSupport;
+
+/// <summary>记录 ProcessStartInfo、不真的起进程的 IGuiProcessStarter 假实现。</summary>
+internal sealed class FakeGuiProcessStarter : IGuiProcessStarter
+{
+    public List<ProcessStartInfo> StartInfos { get; } = new();
+
+    public Process? Start(ProcessStartInfo startInfo)
+    {
+        StartInfos.Add(startInfo);
+        return null;
+    }
 }
 ```
 
@@ -5585,6 +5839,18 @@ using System.Diagnostics;
 
 namespace BashCommandManager.Cli.Infrastructure;
 
+/// <summary>进程启动端口：把 Process.Start 抽出来，单测只断言启动参数、不真的起进程。</summary>
+public interface IGuiProcessStarter
+{
+    Process? Start(ProcessStartInfo startInfo);
+}
+
+/// <summary>默认实现：直接调用 Process.Start（UseShellExecute=true，与 GUI 行为一致）。</summary>
+public sealed class ProcessGuiStarter : IGuiProcessStarter
+{
+    public Process? Start(ProcessStartInfo startInfo) => Process.Start(startInfo);
+}
+
 /// <summary>GUI 可执行文件查找与启动。</summary>
 public interface IGuiLauncher
 {
@@ -5602,15 +5868,18 @@ public sealed class GuiLauncher : IGuiLauncher
     private readonly Func<string, string?> _getEnvironmentVariable;
     private readonly string _cliDirectory;
     private readonly Func<string, bool> _fileExists;
+    private readonly IGuiProcessStarter _processStarter;
 
     public GuiLauncher(
         Func<string, string?>? getEnvironmentVariable = null,
         string? cliDirectory = null,
-        Func<string, bool>? fileExists = null)
+        Func<string, bool>? fileExists = null,
+        IGuiProcessStarter? processStarter = null)
     {
         _getEnvironmentVariable = getEnvironmentVariable ?? Environment.GetEnvironmentVariable;
         _cliDirectory = cliDirectory ?? AppContext.BaseDirectory;
         _fileExists = fileExists ?? File.Exists;
+        _processStarter = processStarter ?? new ProcessGuiStarter();
     }
 
     public string? ResolveGuiPath(string? explicitPath)
@@ -5645,7 +5914,7 @@ public sealed class GuiLauncher : IGuiLauncher
             UseShellExecute = true
         };
 
-        var process = Process.Start(startInfo);
+        var process = _processStarter.Start(startInfo);
         return process?.Id ?? 0;
     }
 }
@@ -5657,12 +5926,12 @@ public sealed class GuiLauncher : IGuiLauncher
 dotnet test tests\BashCommandManager.Cli.Tests\BashCommandManager.Cli.Tests.csproj -c Release --filter "FullyQualifiedName~GuiLauncherTests"
 ```
 
-期望：`Passed! - Failed: 0, Passed: 6`。
+期望：`Passed! - Failed: 0, Passed: 8`（6 个路径查找用例 + 2 个 `Launch` 参数用例）。
 
 - [ ] **Step 5: 提交**
 
 ```powershell
-git add BashCommandManager.Cli\Infrastructure\GuiLauncher.cs tests\BashCommandManager.Cli.Tests\Infrastructure
+git add BashCommandManager.Cli\Infrastructure\GuiLauncher.cs tests\BashCommandManager.Cli.Tests\Infrastructure tests\BashCommandManager.Cli.Tests\TestSupport\FakeGuiProcessStarter.cs
 git commit -m "feat(cli): 新增 GUI 定位与启动器（--command 透传）"
 ```
 
@@ -5896,7 +6165,7 @@ public class GroupCommandsTests
         var data = result.Data!.AsObject();
         Assert.Equal("运维", data["name"]!.GetValue<string>());
         Assert.Equal(1, data["parentId"]!.GetValue<int>());
-        Assert.Equal(1, data["sortOrder"]!.GetValue<int>());
+        Assert.Equal(0, data["sortOrder"]!.GetValue<int>()); // 同级从 0 开始：spec L182 + GUI GroupService 的 siblings.Count() 一致（B-2）
     }
 
     [Fact]
@@ -6342,7 +6611,7 @@ public static class CliHost
             }
             else
             {
-                resolution = DatabasePathResolver.ResolveForCurrentProcess(parsed.DatabasePath);
+                resolution = DatabasePathResolver.ResolveForCurrentProcess(parsed.DatabasePath, CliPaths.SettingsDirectory);
             }
 
             using var services = CreateServices(resolution, session, stderrBytes);
@@ -6443,7 +6712,7 @@ $tmp = Join-Path $env:TEMP ("bcm-demo-" + [guid]::NewGuid())
 Remove-Item -Recurse -Force $tmp
 ```
 
-期望：第一条 `{"ok":true,"data":[{"id":1,"name":"根分组","parentId":null,"sortOrder":0,"commandCount":0}],"meta":{"dbPath":"...","created":true,"count":1,"durationMs":N}}`；第二条 `data` 含 `"id":2,"name":"运维","parentId":1,"sortOrder":1`；第三条树形文本 `根分组 (id=1, 命令 0)` + 缩进的 `运维 (id=2, 命令 0)`。
+期望：第一条 `{"ok":true,"data":[{"id":1,"name":"根分组","parentId":null,"sortOrder":0,"commandCount":0}],"meta":{"dbPath":"...","created":true,"count":1,"durationMs":N}}`；第二条 `data` 含 `"id":2,"name":"运维","parentId":1,"sortOrder":0`（同级第一个子分组是 0 基）；第三条树形文本 `根分组 (id=1, 命令 0)` + 缩进的 `运维 (id=2, 命令 0)`。
 
 - [ ] **Step 9: 提交**
 
@@ -6541,7 +6810,7 @@ git commit -m "feat(cli): 接线 DatabaseSession/CliDispatcher 并实现 groups 
     }
 
     [Fact]
-    public async Task Delete_requires_force_at_parser_level()
+    public void Delete_requires_force_at_parser_level()
     {
         var error = Assert.Throws<CliFailureException>(() => Parse("groups", "delete", "运维"));
 
@@ -7149,6 +7418,8 @@ git commit -m "feat(cli): 实现 commands show/add 并校验文件存在性"
   - `public static Task<CliResult> CommandCommands.EditAsync(ParsedCommand command, CliServices services, CliCommandStore store, CommandResolver resolver)`
   - `public static Task<CliResult> CommandCommands.DeleteAsync(ParsedCommand command, CliCommandStore store, CommandResolver resolver)`
 
+> **`--group` 语义（VD-13）**：本任务的 `EditAsync` 把 `--group` 当作**目标分组**（修改后的归属），不是候选限定；这是 spec 2 节「`<id\|name>` 的 `--group` 先限定候选」的**唯一例外**。`commands move` 专做批量移动，`commands edit --group` 允许在移动的同时改 `--name`/`--description`/`--file`。命令表（`CommandCatalog` 的 `commands.edit` 摘要与 `--group` 选项说明）、实现注释与测试断言必须保持同一口径。
+
 - [ ] **Step 1: 追加失败测试**
 
 在 `CommandCommandsTests.cs` 类内追加：
@@ -7172,6 +7443,7 @@ git commit -m "feat(cli): 实现 commands show/add 并校验文件存在性"
         Assert.Equal("每日 2:00", stored!.Description);
         Assert.Equal("备份", stored.Name);
         Assert.Equal(script, stored.FilePath);
+        Assert.Equal(1, stored.GroupId); // 未给 --group 时不改分组（--group 是目标分组，不是查找范围，见 VD-13）
         Assert.Equal("每日 2:00", result.Data!["description"]!.GetValue<string>());
         Assert.True(result.Data!["fileExists"]!.GetValue<bool>());
     }
@@ -7275,7 +7547,8 @@ dotnet test tests\BashCommandManager.Cli.Tests\BashCommandManager.Cli.Tests.cspr
 ```csharp
     public static async Task<CliResult> EditAsync(ParsedCommand command, CliServices services, CliCommandStore store, CommandResolver resolver)
     {
-        // 注意：edit 的 --group 是“移动到”，不是查找范围，因此这里不传 groupToken
+        // --group 语义（VD-13）：edit 的 --group 是“移动到该分组”，不是查找范围；
+        // 所以这里不传 groupToken（<id|name> 按全局名称解析），--group 只在下面按“目标分组”处理。
         var entity = await resolver.ResolveCommandAsync(command.Arguments[0], groupToken: null);
 
         if (command.HasValue("name"))
@@ -7850,7 +8123,7 @@ git commit -m "feat(cli): 实现 commands import 的目录展开、递归、去�
 - Test: `tests/BashCommandManager.Cli.Tests/Operations/ImportExportTests.cs`（追加用例）
 
 **Interfaces:**
-- Consumes: `CliCommandStore.GetCommandSubtree`/`GetAllCommandsAsync`/`FillGroupNamesAsync`、`JsonShapes`
+- Consumes: `CliCommandStore.GetGroupSubtreeIdsAsync`/`GetAllCommandsAsync`/`FillGroupNamesAsync`、`JsonShapes`
 - Produces:
   - `public static Task<CliResult> CommandCommands.ExportAsync(ParsedCommand command, CliServices services, CliCommandStore store, CommandResolver resolver)`
   - 私有辅助：`static string BuildCsv(IReadOnlyList<Command>)`、`static string EscapeCsv(string)`
@@ -8149,7 +8422,7 @@ git commit -m "feat(cli): 实现 commands export 的 JSON/CSV 导出与分组过
 - Test: `tests/BashCommandManager.Cli.Tests/Operations/RunCommandTests.cs`
 
 **Interfaces:**
-- Consumes: `TerminalCommandBuilder.Build/GetDefaultTemplate`、`ExecutionSettings.Clone/WithTerminal`、`TerminalLaunchPlan`（均来自 #9 的 `TerminalCommandBuilder.cs`/`ExecutionSettings.cs`/`ExecutionResult.cs`）、`IExecutableLocator`（#9）、`IProcessRunner`（T9）、`CliSettingsStore.GetExecutionSettings`（T10）
+- Consumes: `TerminalCommandBuilder.Build/GetDefaultTemplate`、`ExecutionSettings.Clone/WithTerminal`、`TerminalLaunchPlan`（分别来自 #9 的 `Core/Services/TerminalCommandBuilder.cs`、`Core/Models/ExecutionSettings.cs`、`Core/Models/TerminalLaunchPlan.cs`；`Core/Services/ExecutionResult.cs` 只含 `ExecutionOptions`/`ExecutionResult`）、`IExecutableLocator`（#9）、`IProcessRunner`（T9）、`CliSettingsStore.GetExecutionSettings`（T10）
 - Produces: `public static Task<CliResult> RunCommand.ExecuteAsync(ParsedCommand command, CliServices services, CliCommandStore store, CommandResolver resolver)`
 
 - [ ] **Step 1: 写失败测试**
@@ -8641,13 +8914,14 @@ $env:BASHCOMMANDMANAGER_SETTINGS_DIR = $tmp
 & $exe commands add --name ok --file "$tmp\ok.cmd" --db "$tmp\app.db" --json | Out-Null
 & $exe run ok --dry-run --db "$tmp\app.db" --json
 & $exe run ok --wait --db "$tmp\app.db" --json
-& $exe run ok --wait --json
+# 不存在命令的退出码：必须带 --db 临时库，避免落到真实库、误执行真实同名命令（B-5）
+& $exe run definitely-not-exist --wait --db "$tmp\app.db" --json
 $LASTEXITCODE
 Remove-Item -Recurse -Force $tmp
 Remove-Item Env:\BASHCOMMANDMANAGER_SETTINGS_DIR
 ```
 
-期望：dry-run 输出 `{"ok":true,"data":{"dryRun":true,"fileName":"cmd.exe","arguments":"/k \"<tmp>\\ok.cmd\"","workingDirectory":"<tmp>"},...}`；第二条 `data.exitCode` 为 0；第三条命令不存在 → 退出 2。
+期望：dry-run 输出 `{"ok":true,"data":{"dryRun":true,"fileName":"cmd.exe","arguments":"/k \"<tmp>\\ok.cmd\"","workingDirectory":"<tmp>"},...}`；第二条 `data.exitCode` 为 0；第三条 `run definitely-not-exist --wait --db "$tmp\app.db"` 在临时库里找不到命令 → 退出 2（`E_NOT_FOUND`），不会碰真实库。
 
 - [ ] **Step 6: 提交**
 
@@ -8976,7 +9250,7 @@ git commit -m "feat(cli): 实现 config get 的完整/按键两种输出"
     }
 
     [Fact]
-    public async Task Set_unknown_key_is_config_key_error()
+    public void Set_unknown_key_is_config_key_error()
     {
         using var services = Services(new FakeSettingsStore());
 
@@ -9088,7 +9362,7 @@ git commit -m "feat(cli): 实现 config set hotkey/hotkey.enabled"
 - Test: `tests/BashCommandManager.Cli.Tests/Operations/OpenCommandTests.cs`
 
 **Interfaces:**
-- Consumes: `IGuiLauncher`
+- Consumes: `IGuiLauncher`、`CliServices.DatabaseResolution.DatabasePath`（只读校验 `--command` 是否存在）、`System.Data.SQLite`
 - Produces: `public static Task<CliResult> OpenCommand.ExecuteAsync(ParsedCommand command, CliServices services)`
 
 - [ ] **Step 1: 写失败测试**
@@ -9101,6 +9375,7 @@ using BashCommandManager.Cli.CommandLine;
 using BashCommandManager.Cli.Infrastructure;
 using BashCommandManager.Cli.Operations;
 using BashCommandManager.Cli.Tests.TestSupport;
+using BashCommandManager.Core.Models;
 using BashCommandManager.Infrastructure;
 
 namespace BashCommandManager.Cli.Tests.Operations;
@@ -9109,9 +9384,9 @@ public class OpenCommandTests
 {
     private static ParsedCommand Parse(params string[] args) => CommandLineParser.Parse(args, _ => false);
 
-    private static CliServices Services(FakeGuiLauncher launcher)
+    private static CliServices Services(FakeGuiLauncher launcher, string databasePath = @"C:\db\app.db")
         => new(
-            new DatabasePathResolution(@"C:\db\app.db", DatabasePathSource.LocalAppData, null, false),
+            new DatabasePathResolution(databasePath, DatabasePathSource.LocalAppData, null, false),
             session: null,
             new FakeSettingsStore(),
             new FakeProcessRunner(),
@@ -9137,15 +9412,55 @@ public class OpenCommandTests
     }
 
     [Fact]
-    public async Task Open_passes_command_id()
+    public async Task Open_passes_existing_command_id()
     {
+        using var temp = new TempDatabase();
+        int id;
+        using (var session = new DatabaseSession(temp.DatabasePath))
+        {
+            var store = new CliCommandStore(session.Connection);
+            id = await store.CreateCommandAsync(new Command { Name = "备份", FilePath = @"D:\a.bat", GroupId = 1 });
+        }
         var launcher = new FakeGuiLauncher();
-        using var services = Services(launcher);
+        using var services = Services(launcher, temp.DatabasePath);
 
-        var result = await OpenCommand.ExecuteAsync(Parse("open", "--command", "7"), services);
+        var result = await OpenCommand.ExecuteAsync(Parse("open", "--command", id.ToString()), services);
 
-        Assert.Equal(7, result.Data!["commandId"]!.GetValue<int>());
-        Assert.Equal(7, Assert.Single(launcher.Launches).CommandId);
+        Assert.Equal(id, result.Data!["commandId"]!.GetValue<int>());
+        Assert.Equal(id, Assert.Single(launcher.Launches).CommandId);
+    }
+
+    [Fact]
+    public async Task Open_missing_command_is_not_found_exit_two()
+    {
+        using var temp = new TempDatabase();
+        using var session = new DatabaseSession(temp.DatabasePath);
+        _ = session.Connection;
+        var launcher = new FakeGuiLauncher();
+        using var services = Services(launcher, temp.DatabasePath);
+
+        var error = await Assert.ThrowsAsync<CliFailureException>(() =>
+            OpenCommand.ExecuteAsync(Parse("open", "--command", "999"), services));
+
+        Assert.Equal("E_NOT_FOUND", error.Error.Code);
+        Assert.Equal(2, error.Error.ExitCode);
+        Assert.Empty(launcher.Launches);
+    }
+
+    [Fact]
+    public async Task Open_missing_command_does_not_create_database()
+    {
+        using var temp = new TempDatabase();
+        var missing = Path.Combine(temp.Root, "missing.db");
+        var launcher = new FakeGuiLauncher();
+        using var services = Services(launcher, missing);
+
+        var error = await Assert.ThrowsAsync<CliFailureException>(() =>
+            OpenCommand.ExecuteAsync(Parse("open", "--command", "7"), services));
+
+        Assert.Equal("E_NOT_FOUND", error.Error.Code);
+        Assert.Equal(2, error.Error.ExitCode);
+        Assert.False(File.Exists(missing));
     }
 
     [Fact]
@@ -9202,6 +9517,7 @@ dotnet test tests\BashCommandManager.Cli.Tests\BashCommandManager.Cli.Tests.cspr
 using BashCommandManager.Cli.CommandLine;
 using BashCommandManager.Cli.Infrastructure;
 using BashCommandManager.Cli.Output;
+using System.Data.SQLite;
 using System.Globalization;
 using System.Text.Json.Nodes;
 
@@ -9212,6 +9528,18 @@ public static class OpenCommand
 {
     public static Task<CliResult> ExecuteAsync(ParsedCommand command, CliServices services)
     {
+        int? commandId = command.GetValue("command") is string text
+            ? int.Parse(text, CultureInfo.InvariantCulture)
+            : null;
+
+        // --command 必须指向真实存在的命令：先校验再启动 GUI，避免代理误判“定位成功”（验收 9）。
+        // 只读打开数据库；库文件不存在时直接 E_NOT_FOUND，绝不创建空库。
+        if (commandId is int id && !CommandExists(services.DatabaseResolution.DatabasePath, id))
+        {
+            throw CliErrors.NotFound($"未找到命令: {id}",
+                "用 bcm commands list --json 查看现有命令 id");
+        }
+
         var explicitGui = command.GetValue("gui");
         var guiPath = services.Launcher.ResolveGuiPath(explicitGui);
         if (guiPath is null)
@@ -9221,10 +9549,6 @@ public static class OpenCommand
                     $"用 --gui <路径> 指定，或设置环境变量 {GuiLauncher.EnvironmentVariableName}")
                 : CliErrors.GuiNotFound($"指定的 GUI 不存在: {explicitGui}", "核对 --gui 路径");
         }
-
-        int? commandId = command.GetValue("command") is string text
-            ? int.Parse(text, CultureInfo.InvariantCulture)
-            : null;
 
         var processId = services.Launcher.Launch(guiPath, commandId);
 
@@ -9238,6 +9562,27 @@ public static class OpenCommand
         return Task.FromResult(new CliResult(data,
             processId > 0 ? new JsonObject { ["pid"] = processId } : null,
             human));
+    }
+
+    private static bool CommandExists(string databasePath, int commandId)
+    {
+        if (!File.Exists(databasePath))
+        {
+            return false;
+        }
+
+        var builder = new SQLiteConnectionStringBuilder
+        {
+            DataSource = databasePath,
+            ReadOnly = true,
+            FailIfMissing = true
+        };
+        using var connection = new SQLiteConnection(builder.ConnectionString);
+        connection.Open();
+        using var query = connection.CreateCommand();
+        query.CommandText = "SELECT COUNT(1) FROM Commands WHERE Id = @id";
+        query.Parameters.AddWithValue("@id", commandId);
+        return Convert.ToInt32(query.ExecuteScalar(), CultureInfo.InvariantCulture) > 0;
     }
 }
 ```
@@ -9262,9 +9607,12 @@ dotnet test tests\BashCommandManager.Cli.Tests\BashCommandManager.Cli.Tests.cspr
 $exe = ".\BashCommandManager.Cli\bin\Release\net8.0-windows\bcm.exe"
 & $exe open --json ; $LASTEXITCODE
 & $exe open --gui "Z:\missing\BashCommandManager.exe" --json ; $LASTEXITCODE
+$tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("bcm-open-" + [guid]::NewGuid())
+& $exe open --command 999 --db "$tmp\app.db" --json ; $LASTEXITCODE
+Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
 ```
 
-期望：第一条若同目录无 GUI → `{"ok":false,"error":{"code":"E_GUI_NOT_FOUND",...}}` 且退出 2；第二条 `message` 含 `Z:\missing\BashCommandManager.exe`，退出 2。
+期望：第一条若同目录无 GUI → `{"ok":false,"error":{"code":"E_GUI_NOT_FOUND",...}}` 且退出 2；第二条 `message` 含 `Z:\missing\BashCommandManager.exe`，退出 2；第三条在临时库里找不到命令 999 → `{"ok":false,"error":{"code":"E_NOT_FOUND",...}}` 退出 2，且 `$tmp\app.db` 未被创建（只读校验，不建库）。
 
 - [ ] **Step 6: 提交**
 
@@ -9522,11 +9870,15 @@ dotnet test tests\BashCommandManager.Tests\BashCommandManager.Tests.csproj --fil
 
 - [ ] **Step 6: SingleInstanceService 传参**
 
-`Core/Services/SingleInstanceService.cs` 改动三处（其余保持原样）：
+`Core/Services/SingleInstanceService.cs` 改动四处（其余保持原样；旧 `Initialize(Action)` 保留为兼容重载，见 VD-12）：
 
 ```csharp
         private Action<string[]>? _onActivateCallback;
         private string[] _startupArgs = Array.Empty<string>();
+
+        /// <summary>兼容重载：保留 #8 的旧签名（D5.3 只允许新增），内部转发到带参数版本。</summary>
+        public bool Initialize(Action onActivateCallback)
+            => Initialize(_ => onActivateCallback(), Array.Empty<string>());
 
         /// <summary>
         /// 初始化单例服务；startupArgs 为本次进程启动参数，会随激活消息转发给第一个实例。
@@ -9634,6 +9986,14 @@ dotnet test tests\BashCommandManager.Tests\BashCommandManager.Tests.csproj --fil
             }
 ```
 
+> **必须补 using（B-6）**：`#8` 落地后 `MainWindow.xaml.cs` 的 using 只剩 `BashCommandManager.ViewModels`、`System.ComponentModel`、`System.Windows`、`System.Windows.Controls`、`System.Windows.Input`，**已无** `BashCommandManager.Core.Services`；而 `StartupArgumentParser` 在 `BashCommandManager.Core.Services` 命名空间。必须在该文件头追加：
+>
+> ```csharp
+> using BashCommandManager.Core.Services;
+> ```
+>
+> 否则 `ApplyStartupArgumentsCoreAsync` 里的 `StartupArgumentParser.TryGetCommandId(...)` 会报 `CS0246`。不要用全限定名替代（保持与 `StartupArgumentParserTests` 的 using 风格一致）。
+
 - [ ] **Step 9: MainViewModel.SelectCommandAsync 与 GroupTreeViewModel.FindGroupById**
 
 `ViewModels/MainViewModel.cs`：
@@ -9679,6 +10039,8 @@ dotnet test tests\BashCommandManager.Tests\BashCommandManager.Tests.csproj --fil
         StatusText = $"已定位命令: {command.Name}";
     }
 ```
+
+> **GUI 定位的选中逻辑（已核对现状，采用替代方案）**：`MainWindow.xaml` 的 TreeView 现有绑定只有 `ItemsSource="{Binding GroupTreeViewModel.Groups}"`、`SelectedItemChanged="GroupTree_SelectedItemChanged"`、`Tag="{Binding GroupTreeViewModel}"`，`ItemTemplate` 用 `HierarchicalDataTemplate ItemsSource="{Binding Children}"`；**没有** `SelectedItem`/`IsSelected` 绑定，且 `TreeView.SelectedItem` 本身是只读依赖属性。因此无法从 ViewModel 反向驱动树节点高亮/展开。本计划采用替代方案：`SelectCommandAsync` 直接设置 `GroupTreeViewModel.SelectedGroup`（`MainViewModel` 构造函数已订阅该属性并调用 `LoadCommandsForGroup`），从而切换右侧命令列表；不保证树节点自动高亮。若将来要求视觉同步，再给 `Group` 增加 `IsSelected`/`IsExpanded` 并在 `ItemContainerStyle` 中绑定，本计划不引入该改动。
 
 文件头需要 `using BashCommandManager.Core.Services;`。
 
@@ -9728,7 +10090,7 @@ Start-Process .\bin\Release\net8.0-windows10.0.19041.0\win-x64\BashCommandManage
 & .\BashCommandManager.Cli\bin\Release\net8.0-windows\bcm.exe open --command <实际命令 id>
 ```
 
-期望：GUI 从托盘恢复、切到命令 1 所在分组、搜索框填入该命令名、列表只剩该命令；任务管理器里 `BashCommandManager.exe` 只有 1 个进程（验收 9）。
+期望：GUI 从托盘恢复；`GroupTreeViewModel.SelectedGroup` 切到该命令所在分组（右侧列表加载该分组）、搜索框填入该命令名、列表命中该命令（同名命令可能多条，符合 A9）；树节点高亮不要求跟随（见 Step 9 的绑定说明）；任务管理器里 `BashCommandManager.exe` 只有 1 个进程（验收 9）。
 
 - [ ] **Step 12: 提交**
 
@@ -9750,6 +10112,7 @@ git commit -m "feat(cli): GUI 支持 --command 定位并经单实例管道转发
 - Produces:
   - `internal sealed record CliProcessResult(int ExitCode, string Stdout, string Stderr)`
   - `internal static class CliProcess { public static string RepoRoot; public static string CliExecutablePath; public static CliProcessResult Run(string[] args, string? settingsDirectory = null, int timeoutMs = 30000); }`
+  - `CliProcess.Run` 省略 `settingsDirectory` 时**自动创建本次调用的临时空目录**并通过 `BASHCOMMANDMANAGER_SETTINGS_DIR` 传给子进程（调用结束删除），因此 8 条冒烟都不会读写开发机真实 `settings.json`（B-4）
 
 - [ ] **Step 1: 写测试支持与失败测试**
 
@@ -9798,6 +10161,13 @@ internal static class CliProcess
 
     public static CliProcessResult Run(string[] args, string? settingsDirectory = null, int timeoutMs = 30000)
     {
+        // B-4：默认也走临时 settings 目录；绝不落到 %LOCALAPPDATA%\BashCommandManager\settings.json
+        var ownsSettingsDirectory = settingsDirectory is null;
+        settingsDirectory ??= Path.Combine(
+            Path.GetTempPath(),
+            "bcm-smoke-settings-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(settingsDirectory);
+
         var startInfo = new ProcessStartInfo
         {
             FileName = CliExecutablePath,
@@ -9815,35 +10185,53 @@ internal static class CliProcess
             startInfo.ArgumentList.Add(argument);
         }
 
+        // 先清除 ambient 变量，再按需显式设置，避免开发机环境泄漏进冒烟
         startInfo.Environment.Remove("BASHCOMMANDMANAGER_DB");
         startInfo.Environment.Remove("BASHCOMMANDMANAGER_GUI");
-        if (settingsDirectory is not null)
+        startInfo.Environment.Remove("BASHCOMMANDMANAGER_SETTINGS_DIR");
+        startInfo.Environment["BASHCOMMANDMANAGER_SETTINGS_DIR"] = settingsDirectory;
+
+        try
         {
-            startInfo.Environment["BASHCOMMANDMANAGER_SETTINGS_DIR"] = settingsDirectory;
+            using var process = Process.Start(startInfo)
+                                ?? throw new InvalidOperationException("无法启动 bcm.exe");
+
+            // 验收 7：stdin 立即关闭
+            process.StandardInput.Close();
+
+            var stdout = process.StandardOutput.ReadToEndAsync();
+            var stderr = process.StandardError.ReadToEndAsync();
+
+            if (!process.WaitForExit(timeoutMs))
+            {
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                catch (InvalidOperationException)
+                {
+                }
+                throw new TimeoutException($"bcm 未在 {timeoutMs}ms 内退出: {string.Join(' ', args)}");
+            }
+
+            return new CliProcessResult(process.ExitCode, stdout.GetAwaiter().GetResult(), stderr.GetAwaiter().GetResult());
         }
-
-        using var process = Process.Start(startInfo)
-                            ?? throw new InvalidOperationException("无法启动 bcm.exe");
-
-        // 验收 7：stdin 立即关闭
-        process.StandardInput.Close();
-
-        var stdout = process.StandardOutput.ReadToEndAsync();
-        var stderr = process.StandardError.ReadToEndAsync();
-
-        if (!process.WaitForExit(timeoutMs))
+        finally
         {
-            try
+            if (ownsSettingsDirectory)
             {
-                process.Kill(entireProcessTree: true);
+                try
+                {
+                    Directory.Delete(settingsDirectory, recursive: true);
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
             }
-            catch (InvalidOperationException)
-            {
-            }
-            throw new TimeoutException($"bcm 未在 {timeoutMs}ms 内退出: {string.Join(' ', args)}");
         }
-
-        return new CliProcessResult(process.ExitCode, stdout.GetAwaiter().GetResult(), stderr.GetAwaiter().GetResult());
     }
 
     private static string FindRepoRoot()
@@ -10022,11 +10410,20 @@ dotnet test tests\BashCommandManager.Cli.Tests\BashCommandManager.Cli.Tests.cspr
 - [ ] **Step 3: 断言不依赖真实安装库**
 
 ```powershell
-# 确认本机真实旧库未被修改（时间戳不变）
-Get-Item 'D:\Program Files\BashCommandManager\data\app.db' | Select-Object FullName, Length, LastWriteTime
+# 冒烟库必须位于临时目录（TempDatabase.Root = Path.GetTempPath() + bcm-cli-<guid>）
+$tempRoot = [System.IO.Path]::GetTempPath()
+"冒烟临时根目录: $tempRoot"
+# 若本机安装了正式版，只读核对旧库时间戳未被冒烟修改；不再硬编码 D:\ 路径，未安装则跳过
+$installRoot = Join-Path $env:ProgramFiles 'BashCommandManager'
+$realDb = Join-Path $installRoot 'data\app.db'
+if (Test-Path $realDb) {
+    Get-Item $realDb | Select-Object FullName, Length, LastWriteTime
+} else {
+    "未安装正式版或旧库不存在（$realDb），跳过真实库时间戳核对；冒烟库均在 $tempRoot 下"
+}
 ```
 
-期望：`LastWriteTime` 仍为迁移前的时间（本步骤只是人工核对，不写入任何文件）。
+期望：`$tempRoot` 指向系统临时目录；若存在 `$env:ProgramFiles\BashCommandManager\data\app.db`，其 `LastWriteTime` 仍为迁移前的时间（本步骤只读，不写入任何文件）；未安装时输出跳过说明，不报错（B-4 / 建议 14）。
 
 - [ ] **Step 4: 提交**
 
@@ -10070,7 +10467,7 @@ Remove-Item Env:\BASHCOMMANDMANAGER_SETTINGS_DIR
 
 `.claude/skills/bash-command-manager/SKILL.md`：
 
-```markdown
+````markdown
 ---
 name: bash-command-manager
 description: Use when an agent needs to list, search, create, edit, move, delete or run BashCommandManager batch commands, manage groups, change the global hotkey, or open the BashCommandManager GUI on Windows via the bcm CLI
@@ -10119,32 +10516,32 @@ Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*','
 - 删除类命令必须显式 `--force`，否则退出 1（`E_CONFIRM_REQUIRED`）。
 - 名称不唯一会返回 `E_AMBIGUOUS` 与候选 id，改用 id 重试，不要猜。
 
-## Cheat Sheet（19 条）
+## Cheat Sheet（19 条，与 `bcm --help` 一一对应）
 
 | 目的 | 命令 |
 |---|---|
-| 列出分组 | `bcm groups list --json` |
-| 树形分组 | `bcm groups list --tree --json` |
+| 列出分组（含树形） | `bcm groups list --json`（加 `--tree` 输出 `children` 嵌套） |
 | 新建分组 | `bcm groups create --name 运维 --parent 1 --json` |
 | 重命名分组 | `bcm groups rename 2 --name 生产运维 --json` |
 | 删除分组（级联） | `bcm groups delete 运维 --force --json` |
 | 列出命令 | `bcm commands list --json` |
-| 按分组+排序 | `bcm commands list --group 运维 --sort count --order desc --json` |
 | 搜索 | `bcm commands search 备份 --json` |
 | 查看单条 | `bcm commands show 7 --json` |
 | 新增 | `bcm commands add --name 备份 --file "D:\bat\备份.bat" --group 运维 --json` |
-| 编辑 | `bcm commands edit 7 --description "每日 2:00" --json` |
+| 编辑（可换分组） | `bcm commands edit 7 --description "每日 2:00" --json` |
 | 删除 | `bcm commands delete 7,8 --force --json` |
 | 移动 | `bcm commands move 7,8 --to 生产运维 --json` |
 | 导入目录 | `bcm commands import --group 运维 "D:\bat" --recursive --json` |
-| 导出 JSON | `bcm commands export --format json --output backup.json --json` |
-| 导出 CSV | `bcm commands export --format csv --output backup.csv --json` |
+| 导出（JSON/CSV） | `bcm commands export --format json --output backup.json --json` |
 | 常用命令 | `bcm commands frequent --limit 5 --json` |
 | 运行 | `bcm run 备份 --wait --json` |
-| 打开 GUI 并定位 | `bcm open --command 7 --json` |
-| 读配置 | `bcm config get --json` / `bcm config get db.path --json` |
+| 读配置 | `bcm config get --json`（`bcm config get db.path --json` 读单节） |
 | 改快捷键 | `bcm config set hotkey "Ctrl+Shift+N" --json` |
+| 打开 GUI 并定位 | `bcm open --command 7 --json` |
 | 版本 | `bcm --version --json` |
+
+> 上表 19 行与 `bcm --help` 的 19 条命令一一对应；常见变体（`groups list --tree`、`commands export --format csv`、`config get <key>`）已合并进所属命令行，不再单独占行。
+> `commands edit` 的 `--group` 是**目标分组**（改归属，等价于 move，但可与其他字段一起改）；`commands show`/`run`/`delete` 的 `--group` 才是查找范围（VD-13）。
 
 ## JSON Examples（真实输出）
 
@@ -10186,13 +10583,14 @@ Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*','
 | 现象 | 处理 |
 |---|---|
 | `E_DB_BUSY` | 稍后重试（GUI 正在写库）；连续失败则提示用户关闭 GUI 再试 |
-| `E_NOT_FOUND` | 先 `bcm commands list --json` / `bcm groups list --json` 取真实 id |
+| `E_NOT_FOUND` | 先 `bcm commands list --json` / `bcm groups list --json` 取真实 id；`open --command <id>` 的 id 不存在同样退出 2 |
 | `E_AMBIGUOUS` | 用候选里的 id 重试，或用 `--group` 缩小范围 |
 | `E_GUI_NOT_FOUND` | 用 `--gui <BashCommandManager.exe>` 或设 `BASHCOMMANDMANAGER_GUI` |
 | `E_CONFIRM_REQUIRED` | 先向用户确认，再加 `--force` |
 | 改完快捷键无效 | `settings.json` 改动需重启 GUI 才生效（运行中的 GUI 不会重读） |
 | 数据看着是旧库 | 核对 `meta.dbPath`；旧 `{app}\data\app.db` 只在首次启动时被复制一次 |
 ```
+````
 
 - [ ] **Step 3: 校验 frontmatter 与帮助一致性**
 
@@ -10215,33 +10613,54 @@ git commit -m "docs(cli): 新增 bash-command-manager 操作 skill"
 **Files:**
 - Modify: `Packaging/InnoSetup/BashCommandManager-Full.iss`
 - Modify: `Packaging/InnoSetup/BashCommandManager-Lite.iss`
+- Modify: `BashCommandManager.csproj`（补 `<Version>1.3.0</Version>`，D6 口径）
 
 **Interfaces:**
-- Consumes: T1 的 `<Version>1.3.0</Version>`；现有 `[Files]` 的 `recursesubdirs createallsubdirs`
-- Produces: 安装包会把 `bin\cli\bcm.exe` 递归复制到 `{app}\cli`；可选 PATH 任务写入 HKCU
+- Consumes: T1 的 CLI csproj `<Version>1.3.0</Version>`、现有 `[Files]` 的 `recursesubdirs createallsubdirs`
+- Produces: 安装包会把 `bin\cli\bcm.exe` 递归复制到 `{app}\cli`；可选 PATH 任务写入 HKCU；GUI csproj 与 CLI csproj/`.iss`/README 同为 `1.3.0`
 
-- [ ] **Step 1: 两个 `.iss` 各改三处（内容完全相同）**
+- [ ] **Step 1: 两个 `.iss` 各改四处；GUI csproj 补 `<Version>`**
 
-`#define MyAppVersion "1.2.1"` → `#define MyAppVersion "1.3.0"`。
+（a）两个 `.iss` 的 `#define MyAppVersion "1.2.1"` → `#define MyAppVersion "1.3.0"`。
 
-`[Setup]` 段（放在 `ArchitecturesInstallIn64BitMode=x64` 之后）加一行：
+（b）`[Setup]` 段（放在 `ArchitecturesInstallIn64BitMode=x64` 之后）加一行：
 
 ```pascal
 ChangesEnvironment=yes
 ```
 
-`[Tasks]` 段（`desktopicon` 之后）加：
+（c）`[Tasks]` 段（`desktopicon` 之后）加：
 
 ```pascal
 Name: "addtocli"; Description: "Add bcm CLI to PATH"; GroupDescription: "Command line:"; Flags: unchecked
 ```
 
-`[Files]` 之后新增 `[Registry]` 段（若文件已有 `[Registry]` 则复用该段）：
+（d）`[Files]` 之后新增 `[Registry]` 与 `[Code]` 段（若文件已有同名段则复用/追加）。**不能**只写一条 `ValueData: "{olddata};{app}\cli"`：当 HKCU `Path` 不存在时 `{olddata}` 为空，会得到前导分号（空 PATH 项在部分 Win32 API 里等价于「当前目录」）。拆成两条互斥的注册项，按安装前的 Path 是否为空选择：
 
 ```pascal
 [Registry]
-Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}\cli"; Tasks: addtocli; Flags: preservestringtype
+Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}\cli"; Tasks: addtocli; Flags: preservestringtype; Check: UserPathHasValue
+Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{app}\cli"; Tasks: addtocli; Flags: preservestringtype; Check: UserPathIsEmpty
+
+[Code]
+function UserPathHasValue(): Boolean;
+var
+  Existing: string;
+begin
+  Result := RegQueryStringValue(HKCU, 'Environment', 'Path', Existing) and (Trim(Existing) <> '');
+end;
+
+function UserPathIsEmpty(): Boolean;
+var
+  Existing: string;
+begin
+  Result := (not RegQueryStringValue(HKCU, 'Environment', 'Path', Existing)) or (Trim(Existing) = '');
+end;
 ```
+
+> 说明：`UserPathHasValue` 为真时用 `{olddata};{app}\cli` 追加；`UserPathIsEmpty` 为真时只写 `{app}\cli`，不会产生前导分号。两个 `Check` 互斥（均基于安装前的 HKCU Path），因此同一个 `Path` 值只会被写一次。`RegQueryStringValue` 是 Inno Setup Pascal Script 的内置函数，无需额外 `uses`。
+
+（e）`BashCommandManager.csproj` 的 `<PropertyGroup>` 增加 `<Version>1.3.0</Version>`（D6 要求 csproj 版本与 `.iss`/README 一致；也用于安装包与 `config get version` 的对照）。
 
 > `[Files]` 段**不要改**：`Source: "Full\bin\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs`（Lite 同理，源为 `Lite\bin\*`）会把 `bin\cli\*` 递归复制到 `{app}\cli`。
 
@@ -10252,18 +10671,20 @@ dotnet publish BashCommandManager.Cli\BashCommandManager.Cli.csproj -c Release -
 dotnet publish BashCommandManager.Cli\BashCommandManager.Cli.csproj -c Release -r win-x64 -p:SelfContained=false -p:PublishSingleFile=true -o Packaging\InnoSetup\Lite\bin\cli
 ```
 
-期望：两个目录都有 `bcm.exe`；Full 的 `bcm.exe` 约 60-80MB（自包含），Lite 的约 1MB 以内（框架依赖）。
+期望：两个目录都有 `bcm.exe`；Full 的 `bcm.exe` 约 60-80MB（自包含），Lite 的约 1MB 以内（框架依赖）。若 Lite 的 `bin\cli\bcm.exe` 缺失，说明发布命令失败，必须先解决再编 Lite 安装包（否则 Lite 安装包会静默缺少 CLI）。
 
 - [ ] **Step 3: 验证单文件自包含产物可运行**
 
 ```powershell
-& .\Packaging\InnoSetup\Full\bin\cli\bcm.exe --version
-& .\Packaging\InnoSetup\Lite\bin\cli\bcm.exe --version
-Test-Path .\Packaging\InnoSetup\Full\bin\cli\bcm.exe
-Test-Path .\Packaging\InnoSetup\Lite\bin\cli\bcm.exe
+$full = .\Packaging\InnoSetup\Full\bin\cli\bcm.exe
+$lite = .\Packaging\InnoSetup\Lite\bin\cli\bcm.exe
+if (-not (Test-Path $full)) { throw "缺少 Full CLI 产物: $full" }
+if (-not (Test-Path $lite)) { throw "缺少 Lite CLI 产物: $lite" }
+& $full --version   # 自包含：无需预装 .NET
+& $lite --version   # 框架依赖：需本机已安装 .NET 8 Desktop Runtime
 ```
 
-期望：两次都输出 `1.3.0`；`Test-Path` 均为 `True`。若运行时报 `SQLite.Interop.dll` 加载失败，确认 csproj 含 `IncludeNativeLibrariesForSelfExtract=true`（T1 已加）。
+期望：两条 `Test-Path` 断言通过；`$full --version` 输出 `1.3.0`；`$lite --version` 在装有 .NET 8 Desktop Runtime 的机器上输出 `1.3.0`。Lite 若报「You must install .NET」/框架缺失，说明本机未装 .NET 8（这是 Lite 的设计前提，不是打包失败），装运行时或改用 Full 复验；若运行时报 `SQLite.Interop.dll` 加载失败，确认 csproj 含 `IncludeNativeLibrariesForSelfExtract=true`（T1 已加）。
 
 - [ ] **Step 4: 打包 CLI zip**
 
@@ -10278,7 +10699,7 @@ Get-Item bin\Publish\Installer\BashCommandManager-Cli-v1.3.0-win-x64.zip | Selec
 - [ ] **Step 5: 提交**
 
 ```powershell
-git add Packaging\InnoSetup\BashCommandManager-Full.iss Packaging\InnoSetup\BashCommandManager-Lite.iss
+git add Packaging\InnoSetup\BashCommandManager-Full.iss Packaging\InnoSetup\BashCommandManager-Lite.iss BashCommandManager.csproj
 git commit -m "feat(cli): 安装包加入可选 PATH 任务并把版本统一到 1.3.0"
 ```
 
@@ -10303,9 +10724,9 @@ git commit -m "feat(cli): 安装包加入可选 PATH 任务并把版本统一到
 两个安装包都会把 `bcm.exe`（CLI）随附到 `{app}\cli`；安装时可选勾选「Add bcm CLI to PATH」（写 HKCU 的 Path，卸载不自动移除）。
 ```
 
-（b）「打包步骤」在 Lite 之后新增一节：
+（b）「打包步骤」在 Lite（`### 3.`）之后、原「检查生成的安装包」之前新增 `### 4. 发布 CLI（bcm.exe）`，并把原 `### 4. 检查生成的安装包` 改为 `### 5. 检查生成的安装包`（顶部目录只列到 `##` 级，不需要改；正文编号必须连续，避免两个「4.」）：
 
-```markdown
+````markdown
 ### 4. 发布 CLI（bcm.exe）
 
 ```bash
@@ -10329,9 +10750,9 @@ dotnet publish BashCommandManager.Cli/BashCommandManager.Cli.csproj -c Release -
 ```powershell
 Compress-Archive -Path Packaging\InnoSetup\Full\bin\cli\* -DestinationPath bin\Publish\Installer\BashCommandManager-Cli-v1.3.0-win-x64.zip -Force
 ```
-```
+````
 
-（c）把「注意事项」里的过时说法替换掉：
+（c）把 release notes 模板（`gh release create --notes "..."` 字符串内）「注意事项」里的过时说法替换掉（注意：这段在 `docs/PACKAGING.md` 的「发布到 GitHub」代码块里，不是文末的 `## 常见问题` 段）：
 
 原文 `- 数据存储在应用安装目录的 data/app.db 中` 改为：
 
@@ -10372,7 +10793,7 @@ CLI（`bcm`）覆盖 `groups/commands/run/config/open` 共 19 条子命令，操
 
 （a）「安装说明」之后新增：
 
-```markdown
+````markdown
 ### 命令行（bcm）
 
 安装包会把 CLI 放在 `{安装目录}\cli\bcm.exe`，首次安装可勾选「Add bcm CLI to PATH」。
@@ -10387,6 +10808,7 @@ bcm open --command 7
 
 数据位置：`%LOCALAPPDATA%\BashCommandManager\data\app.db`（旧版安装目录下的 `data\app.db` 会在首次启动时自动复制过来）。
 ```
+````
 
 （b）「项目结构」树里追加：
 
@@ -10394,16 +10816,18 @@ bcm open --command 7
 ├── BashCommandManager.Cli/     # bcm CLI（源码链接 Core 的 WPF-free 子集）
 ```
 
-（c）版本相关：确认 README 中的版本号/发布说明为 `1.3.0`（若出现 `1.2.1` 一并改）。
+（c）版本号（D6）：在标题 `# BashCommandManager` 之后新增一行 `> 当前版本：v1.3.0`（`README.md` 原本没有任何版本号，必须显式写入，T29 才能 grep 到）；若文中其它位置残留 `1.2.1`，一并改为 `1.3.0`。
 
 - [ ] **Step 4: 校验无过时路径残留**
 
 ```powershell
 Select-String -Path README.md,CLAUDE.md,docs\PACKAGING.md -Pattern 'data/app.db','data\\app.db' | Select-Object Path, LineNumber, Line
-Select-String -Path README.md,CLAUDE.md,docs\PACKAGING.md,Packaging\InnoSetup\*.iss,BashCommandManager.Cli\BashCommandManager.Cli.csproj -Pattern '1\.2\.1'
+Select-String -Path README.md,CLAUDE.md,docs\PACKAGING.md,Packaging\InnoSetup\*.iss,BashCommandManager.Cli\BashCommandManager.Cli.csproj,BashCommandManager.csproj -Pattern '1\.2\.1'
+Select-String -Path README.md -Pattern 'v1\.3\.0'
+Select-String -Path BashCommandManager.csproj,BashCommandManager.Cli\BashCommandManager.Cli.csproj -Pattern '<Version>'
 ```
 
-期望：第一条只匹配到「旧位置/迁移源」的说明性文字（不再有「数据存储在安装目录」的表述）；第二条无输出（版本已全部为 1.3.0）。
+期望：第一条只匹配到「旧位置/迁移源」的说明性文字（不再有「数据存储在安装目录」的表述）；第二条无输出（版本已全部为 1.3.0）；第三条命中 `README.md` 的 `v1.3.0`；第四条两个 csproj 都是 `<Version>1.3.0</Version>`。
 
 - [ ] **Step 5: 提交**
 
@@ -10466,10 +10890,15 @@ $actual = (& $exe config get db.path --json | ConvertFrom-Json).data.db.path
 if ($actual -ne $expected) { throw "路径不一致" }
 ```
 
-期望：两行路径完全相同，且脚本不抛异常；随后确认真实旧库仍在：
+期望：两行路径完全相同，且脚本不抛异常；随后确认旧库仍在（路径由 `$env:ProgramFiles` 推导，未安装则跳过，不再硬编码 `D:\`）：
 
 ```powershell
-Get-Item 'D:\Program Files\BashCommandManager\data\app.db' | Select-Object FullName, Length, LastWriteTime
+$legacyDb = Join-Path $env:ProgramFiles 'BashCommandManager\data\app.db'
+if (Test-Path $legacyDb) {
+    Get-Item $legacyDb | Select-Object FullName, Length, LastWriteTime
+} else {
+    "未安装正式版或旧库不存在（$legacyDb），跳过旧库核对"
+}
 ```
 
 - [ ] **Step 5: `--dry-run` 与 GUI 命令行一致性对照**
@@ -10495,37 +10924,126 @@ Remove-Item -Recurse -Force $tmp
 
 ```powershell
 dotnet publish BashCommandManager.Cli\BashCommandManager.Cli.csproj -c Release -r win-x64 -p:SelfContained=true -p:PublishSingleFile=true -o Packaging\InnoSetup\Full\bin\cli
-& .\Packaging\InnoSetup\Full\bin\cli\bcm.exe --version
+dotnet publish BashCommandManager.Cli\BashCommandManager.Cli.csproj -c Release -r win-x64 -p:SelfContained=false -p:PublishSingleFile=true -o Packaging\InnoSetup\Lite\bin\cli
+$fullCli = .\Packaging\InnoSetup\Full\bin\cli\bcm.exe
+$liteCli = .\Packaging\InnoSetup\Lite\bin\cli\bcm.exe
+if (-not (Test-Path $fullCli)) { throw "缺少 Full CLI 产物: $fullCli" }
+if (-not (Test-Path $liteCli)) { throw "缺少 Lite CLI 产物: $liteCli" }
+& $fullCli --version   # 自包含，任何机器可运行
+& $liteCli --version   # 框架依赖，需本机已安装 .NET 8 Desktop Runtime
 & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" Packaging\InnoSetup\BashCommandManager-Full.iss
 & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" Packaging\InnoSetup\BashCommandManager-Lite.iss
 Get-ChildItem bin\Publish\Installer\*Setup.exe | Select-Object Name, Length
 ```
 
-期望：`--version` 输出 `1.3.0`；两次 ISCC 均 `Successful compile`；两个 `*-Setup.exe` 存在且时间是刚生成的（Lite 编译前需已完成 Lite 的 `dotnet publish`，见 docs/PACKAGING.md）。若本机 Inno Setup 不在 `C:\Program Files (x86)\Inno Setup 6\`，先用 `Get-Command ISCC.exe -ErrorAction SilentlyContinue` 或 `Get-ChildItem 'C:\Program Files*\Inno Setup*\ISCC.exe'` 找到实际路径再替换命令。
+期望：两个 `Test-Path` 断言通过；`$fullCli --version` 输出 `1.3.0`；`$liteCli --version` 在装有 .NET 8 Desktop Runtime 的机器上输出 `1.3.0`（若报框架缺失，说明本机未装 .NET 8，属于 Lite 的设计前提，先装运行时再验）；两次 ISCC 均 `Successful compile`；两个 `*-Setup.exe` 存在且时间是刚生成的（Lite 编译前必须先完成 Lite 的 `dotnet publish`，见 docs/PACKAGING.md）。若本机 Inno Setup 不在 `C:\Program Files (x86)\Inno Setup 6\`，先用 `Get-Command ISCC.exe -ErrorAction SilentlyContinue` 或 `Get-ChildItem 'C:\Program Files*\Inno Setup*\ISCC.exe'` 找到实际路径再替换命令。
 
-- [ ] **Step 7: 版本一致性核对（验收 10 的一部分）**
+- [ ] **Step 7: 验收 4——19 条命令可执行且 `ConvertFrom-Json` 字段一致**
 
 ```powershell
-Select-String -Path BashCommandManager.Cli\BashCommandManager.Cli.csproj -Pattern '<Version>'
-Select-String -Path Packaging\InnoSetup\*.iss -Pattern 'MyAppVersion'
-Select-String -Path README.md -Pattern '1\.3\.0','1\.2\.1'
+$tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("bcm-accept4-" + [guid]::NewGuid())
+New-Item -ItemType Directory -Force -Path $tmp | Out-Null
+$exe = ".\BashCommandManager.Cli\bin\Release\net8.0-windows\bcm.exe"
+$env:BASHCOMMANDMANAGER_SETTINGS_DIR = "$tmp\settings"
+$db = Join-Path $tmp 'app.db'
+$script = Join-Path $tmp 'a.cmd'
+$fakeGui = Join-Path $tmp 'fake-gui.cmd'
+Set-Content -Path $script -Value "@echo off`r`nexit /b 0" -Encoding ascii
+Set-Content -Path $fakeGui -Value "@echo off`r`nexit /b 0" -Encoding ascii
+
+function Get-BcmJson {
+    param([string[]]$Arguments, [int]$ExpectedExit = 0)
+    $output = & $exe @Arguments
+    if ($LASTEXITCODE -ne $ExpectedExit) {
+        throw "bcm $($Arguments -join ' ') 退出 $LASTEXITCODE（期望 $ExpectedExit）"
+    }
+    return (($output -join "`n") | ConvertFrom-Json)
+}
+
+function Assert-Fields {
+    param($Object, [string[]]$Names, [string]$Label)
+    foreach ($name in $Names) {
+        if ($null -eq $Object.PSObject.Properties[$name]) {
+            throw "$Label 缺少字段: $name"
+        }
+    }
+}
+
+$version = Get-BcmJson @('--version', '--json')
+Assert-Fields $version.data @('version') 'version'
+$groups = Get-BcmJson @('groups', 'list', '--db', $db, '--json')
+Assert-Fields $groups.data[0] @('id', 'name', 'parentId', 'sortOrder', 'commandCount') 'groups list'
+$created = Get-BcmJson @('groups', 'create', '--name', '运维', '--db', $db, '--json')
+Assert-Fields $created.data @('id', 'name', 'parentId', 'sortOrder') 'groups create'
+$ops = [int]$created.data.id
+$renamed = Get-BcmJson @('groups', 'rename', "$ops", '--name', '生产运维', '--db', $db, '--json')
+Assert-Fields $renamed.data @('id', 'name') 'groups rename'
+$added = Get-BcmJson @('commands', 'add', '--name', '备份', '--file', $script, '--group', '生产运维', '--db', $db, '--json')
+Assert-Fields $added.data @('id', 'name', 'filePath', 'groupId') 'commands add'
+$commandId = [int]$added.data.id
+$list = Get-BcmJson @('commands', 'list', '--db', $db, '--json')
+Assert-Fields $list.data[0] @('id', 'name', 'description', 'filePath', 'groupId', 'groupName', 'sortOrder', 'executionCount', 'lastExecutedAt') 'commands list'
+$search = Get-BcmJson @('commands', 'search', '备份', '--db', $db, '--json')
+Assert-Fields $search.data[0] @('id', 'name', 'description', 'filePath', 'groupId', 'groupName', 'sortOrder', 'executionCount', 'lastExecutedAt') 'commands search'
+$shown = Get-BcmJson @('commands', 'show', "$commandId", '--db', $db, '--json')
+Assert-Fields $shown.data @('id', 'name', 'description', 'filePath', 'groupId', 'groupName', 'sortOrder', 'executionCount', 'lastExecutedAt', 'fileExists') 'commands show'
+$edited = Get-BcmJson @('commands', 'edit', "$commandId", '--description', '每日 2:00', '--db', $db, '--json')
+Assert-Fields $edited.data @('id', 'name', 'description', 'filePath', 'groupId', 'groupName', 'sortOrder', 'executionCount', 'lastExecutedAt', 'fileExists') 'commands edit'
+$null = Get-BcmJson @('groups', 'create', '--name', '测试', '--db', $db, '--json')
+$moved = Get-BcmJson @('commands', 'move', "$commandId", '--to', '测试', '--db', $db, '--json')
+Assert-Fields $moved.data @('moved', 'targetGroupId') 'commands move'
+$exported = Get-BcmJson @('commands', 'export', '--format', 'json', '--output', (Join-Path $tmp 'backup.json'), '--db', $db, '--json')
+Assert-Fields $exported.data @('path', 'format', 'count') 'commands export'
+$importFolder = Join-Path $tmp 'import'
+New-Item -ItemType Directory -Force -Path $importFolder | Out-Null
+Set-Content -Path (Join-Path $importFolder 'b.cmd') -Value "@echo off`r`nexit /b 0" -Encoding ascii
+$imported = Get-BcmJson @('commands', 'import', '--group', '测试', $importFolder, '--db', $db, '--json')
+Assert-Fields $imported.data @('group', 'imported', 'skipped', 'total') 'commands import'
+$dryRun = Get-BcmJson @('run', "$commandId", '--dry-run', '--db', $db, '--json')
+Assert-Fields $dryRun.data @('dryRun', 'fileName', 'arguments', 'workingDirectory') 'run --dry-run'
+$wait = Get-BcmJson @('run', "$commandId", '--wait', '--db', $db, '--json')
+Assert-Fields $wait.data @('id', 'started', 'waited', 'exitCode', 'durationMs') 'run --wait'
+$frequent = Get-BcmJson @('commands', 'frequent', '--db', $db, '--json')
+Assert-Fields $frequent.data[0] @('id', 'name', 'description', 'filePath', 'groupId', 'groupName', 'sortOrder', 'executionCount', 'lastExecutedAt') 'commands frequent'
+$config = Get-BcmJson @('config', 'get', '--json')
+Assert-Fields $config.data @('db', 'settings', 'hotkey', 'gui', 'version') 'config get'
+$hotkey = Get-BcmJson @('config', 'set', 'hotkey', 'Ctrl+Shift+N', '--json')
+Assert-Fields $hotkey.data.hotkey @('enabled', 'key', 'keyName', 'modifiers', 'display') 'config set'
+$opened = Get-BcmJson @('open', '--command', "$commandId", '--gui', $fakeGui, '--json')
+Assert-Fields $opened.data @('opened', 'guiPath', 'commandId') 'open'
+$deleted = Get-BcmJson @('commands', 'delete', "$commandId", '--force', '--db', $db, '--json')
+Assert-Fields $deleted.data @('deleted') 'commands delete'
+$deletedGroup = Get-BcmJson @('groups', 'delete', '测试', '--force', '--db', $db, '--json')
+Assert-Fields $deletedGroup.data @('deletedGroupIds', 'deletedCommandIds') 'groups delete'
+'19 条命令的 JSON 字段全部通过 ConvertFrom-Json 校验'
+Remove-Item -Recurse -Force $tmp
+Remove-Item Env:\BASHCOMMANDMANAGER_SETTINGS_DIR
 ```
 
-期望：csproj 为 `1.3.0`；两个 `.iss` 都是 `1.3.0`；README 无 `1.2.1`。
+期望：19 条命令逐条退出 0；最后打印 `19 条命令的 JSON 字段全部通过 ConvertFrom-Json 校验`；任何 `throw` 都会以非 0 退出并明确指出哪条命令缺哪个字段。`open` 用临时 `fake-gui.cmd` 代替真实 GUI；`run --wait` 用 `exit /b 0` 的临时脚本；全程 `--db` 指向 `$tmp\app.db` 且 `BASHCOMMANDMANAGER_SETTINGS_DIR` 指向 `$tmp\settings`，不读真实库/真实 settings。
 
-- [ ] **Step 8: 手工验收（需桌面会话，逐条记录结果）**
+- [ ] **Step 8: 版本一致性核对（验收 10 的一部分）**
+
+```powershell
+Select-String -Path BashCommandManager.Cli\BashCommandManager.Cli.csproj,BashCommandManager.csproj -Pattern '<Version>'
+Select-String -Path Packaging\InnoSetup\*.iss -Pattern 'MyAppVersion'
+Select-String -Path README.md -Pattern 'v1\.3\.0','1\.3\.0','1\.2\.1'
+```
+
+期望：两个 csproj 都为 `<Version>1.3.0</Version>`；两个 `.iss` 都是 `1.3.0`；README 命中 `v1.3.0` 且无 `1.2.1`。
+
+- [ ] **Step 9: 手工验收（需桌面会话，逐条记录结果；验收 4 已由 Step 7 自动覆盖）**
 
 | 验收 spec 条目 | 操作 | 期望 |
 |---|---|---|
-| 4 / 退出码 | 依次跑 `bcm bogus`、`bcm commands show 9999`、`bcm run 不存在` | 1 / 2 / 2 |
-| 5 | `bcm groups delete 根分组`（无 `--force`）与 `bcm groups delete 1 --force` | 分别是 `E_CONFIRM_REQUIRED`（1）与 `E_ROOT_GROUP`（1） |
-| 6 | `bcm groups create --name 中文分组 --json`，再 `groups list --json` | 中文原样往返，无 `\uXXXX` |
-| 7 | `echo. | bcm groups list --json`（stdin 有内容） | 不读 stdin，正常退出 0 |
-| 8 | `bcm groups delete 某分组 --force --json` | `deletedCommandIds` 数量与该分组+子分组实际命令数一致 |
-| 9 | GUI 未运行 / 已运行各执行一次 `bcm open --command <id>` | 两种情况都能定位，任务管理器只有 1 个 GUI 进程 |
-| 10 | 抽查 `bcm --help` 与 SKILL.md 的 5 条示例 | 用法与参数完全一致 |
+| 5 退出码 | 依次跑 `bcm bogus`、`bcm commands show 9999`、`bcm run 不存在` | 1 / 2 / 2 |
+| 6 中文往返 | `bcm groups create --name 中文分组 --json`，再 `groups list --json` | 中文原样往返，无 `\uXXXX` |
+| 7 stdin | `echo. \| bcm groups list --json`（stdin 有内容） | 不读 stdin，正常退出 0 |
+| 8 删除确认与级联数量 | 先 `bcm groups delete 根分组`（无 `--force`）与 `bcm groups delete 1 --force`；再 `bcm groups delete 某分组 --force --json` | 前两条分别是 `E_CONFIRM_REQUIRED`（1）与 `E_ROOT_GROUP`（1）；第三条 `deletedCommandIds` 数量与该分组+子分组实际命令数一致 |
+| 9 open 定位 | GUI 未运行 / 已运行各执行一次 `bcm open --command <id>` | 两种情况都能定位，任务管理器只有 1 个 GUI 进程 |
+| 10 帮助一致性 | 抽查 `bcm --help` 与 SKILL.md 的 5 条示例 | 用法与参数完全一致 |
 
-- [ ] **Step 9: 提交（仅当 Step 1-8 修了问题时；无改动就跳过）**
+- [ ] **Step 10: 提交（仅当 Step 1-9 修了问题时；无改动就跳过）**
 
 ```powershell
 git status --short
@@ -10534,7 +11052,7 @@ git add <改动的文件>
 git commit -m "chore(cli): 修正 v1.3.0 全量验证中发现的问题"
 ```
 
-无论是否提交，都要把 Step 1-8 的「命令 / 期望 / 实际」三列贴进 PR 描述（`docs/superpowers/README.md` 要求 verification-before-completion 证据附在 PR/Release 说明里）。**不要** `git add -A`。
+无论是否提交，都要把 Step 1-9 的「命令 / 期望 / 实际」三列贴进 PR 描述（`docs/superpowers/README.md` 要求 verification-before-completion 证据附在 PR/Release 说明里）。**不要** `git add -A`。
 
 ## Self-Review
 
@@ -10553,9 +11071,9 @@ git commit -m "chore(cli): 修正 v1.3.0 全量验证中发现的问题"
 | 验收 | 落地任务 | 验证方式 |
 |---|---|---|
 | 1 GUI publish 无 `bcm.exe`、不编译 CLI/测试源码 | T1（排除项）、T29 步骤 3 | `dotnet publish` 后断言 `bcm.exe` 不存在、`xunit*`/`bcm.dll` 计数 0 |
-| 2 CLI 发布产出 `bcm.exe`、Full 自包含可运行 | T27、T29 步骤 6 | publish 两步 + `bcm --version` |
+| 2 CLI 发布产出 `bcm.exe`、Full 自包含可运行 | T27、T29 步骤 6 | Full+Lite 两次 publish + 产物存在断言 + `bcm --version`（Lite 需 .NET 8） |
 | 3 GUI/CLI 的 `db.path` 完全相同；旧库仍在 | T5、T6、T29 步骤 4 | `config get db.path` 与 `%LOCALAPPDATA%` 比对；旧库时间戳核对 |
-| 4 19 条命令可执行且字段一致 | T12–T23、T25 | 每条命令的 JSON 断言测试 + 冒烟 |
+| 4 19 条命令可执行且字段一致 | T12–T23、T25、T29 步骤 7 | 每条命令的 JSON 断言测试 + 冒烟 + `ConvertFrom-Json` 字段遍历脚本 |
 | 5 退出码 0/1/2/3 | T1、T3、T25 步骤 3 | `ExitCodesTests`、`ParserValidationTests`、`CliSmokeTests` |
 | 6 中文往返无损、UTF-8 无 BOM | T4、T10、T19、T25 | `JsonEnvelopeTests.Chinese_is_not_escaped`、`Writes_utf8_without_bom`、CSV 无 BOM 断言 |
 | 7 stdin 立即关闭、30s 内结束、无弹窗 | T25 `CliProcess` | 每次启动都 `StandardInput.Close()` + 30s 超时 |
@@ -10593,19 +11111,19 @@ git commit -m "chore(cli): 修正 v1.3.0 全量验证中发现的问题"
 |---|---|---|
 | D2 主 csproj 用 `DefaultItemExcludes` 排除 `tests\**;BashCommandManager.Cli\**` | T1 步骤 2 | 只验证/补齐，不重复添加 `<Compile Remove>` |
 | D2.1 两个测试项目、CLI 专属测试独立 | T1 步骤 3 | `tests/BashCommandManager.Cli.Tests` 引用 CLI；GUI 测试只在既有项目子目录追加 |
-| **D2.2 不链接 `CommandExecutor.cs`** | T1 的 `SharedSources` 清单、T20 `RunCommand` | 清单里没有 `CommandExecutor.cs`/`CommandService.cs`/`SettingsService.cs`/`HotkeySettings.cs`/`SingleInstanceService.cs`；`ExecutionResult.cs`（`TerminalLaunchPlan` 等）按 D2.2 第 3 条加入；`run` 自实现启动，`--dry-run` 复用 `TerminalCommandBuilder` |
+| **D2.2 不链接 `CommandExecutor.cs`** | T1 的 `SharedSources` 清单、T20 `RunCommand` | 清单里没有 `CommandExecutor.cs`/`CommandService.cs`/`SettingsService.cs`/`HotkeySettings.cs`/`SingleInstanceService.cs`；`Core/Models/TerminalLaunchPlan.cs`（独立文件）与 `Core/Services/ExecutionResult.cs`（`ExecutionOptions`/`ExecutionResult`）按 D2.2 第 3 条分别加入；`run` 自实现启动，`--dry-run` 复用 `TerminalCommandBuilder` |
 | **D4.1 迁移只复制不删除、失败回退、可覆盖、有单测** | T5（实现+测试）、T6（GUI 接入）、T12（`meta.warning`）、T29 步骤 4 | `DatabaseMigratorTests` 覆盖成功/目标已存在/复制失败/建目录失败；解析器测试覆盖 `BASHCOMMANDMANAGER_DB` 与 `--db` |
 | D5.1 根目录 `dotnet build -c Release` 仍只构建主项目 | T1 步骤 2、T29 步骤 1/3 | publish 产物断言 |
 | D5.2 GUI「运行」行为不变 | T20（CLI 独立实现）、T24 不改 `CommandExecutor` | GUI 侧只新增 `GetByIdAsync` 与启动参数 |
-| D5.3 不删改已有公开成员 | T6（`Initialize()` 签名不变）、T24（只新增） | `DatabaseInitializer.Initialize()` 仍为 `void` |
+| D5.3 不删改已有公开成员 | T6（`Initialize()` 签名不变）、T24（新增重载，见 VD-12） | `DatabaseInitializer.Initialize()` 仍为 `void`；`SingleInstanceService.Initialize(Action)` 保留，新增 `Initialize(Action<string[]>, string[])` |
 | D5.4 先失败测试再实现 | 每个任务 Step 1/2 vs Step 3/4 | 每条实现都有对应的“跑测试确认失败”步骤 |
 | D5.5 不新增第三方依赖 | T1 步骤 3 | CLI 只 3 个包（与主工程同版本），测试项目只 xunit 三件套 |
 | D5.6 中文无乱码 | T4/T10/T19 的 UTF-8 断言、T28 grep | 所有输出与文件写入均 `UTF8Encoding(false)` |
-| D6 版本 1.3.0 三处统一 | T1（csproj）、T27（两个 .iss）、T28（README）、T29 步骤 7 | grep 核对 |
+| D6 版本 1.3.0 四处统一 | T1（CLI csproj）、T27（GUI csproj + 两个 .iss）、T28（README）、T29 步骤 8 | grep 核对 |
 
 ### 5. 占位符扫描
 
-已逐项检查并排除：本计划不含 `TBD`、`TODO`、`适当处理`、`实现其余命令`、`同上`、`类似 Task N` 这类描述；每条命令都有自己的处理器方法、完整代码与测试落点；每个任务的代码块都是可直接粘贴的完整实现（辅助方法就在同一代码块内）。
+已逐项检查并排除：本计划不含未完成标记（占位符）、「适当处理」、「实现其余命令」、「同上」、「类似 Task N」这类描述；每条命令都有自己的处理器方法、完整代码与测试落点；每个任务的代码块都是可直接粘贴的完整实现（辅助方法就在同一代码块内）。
 
 ### 6. 类型/签名一致性抽查
 

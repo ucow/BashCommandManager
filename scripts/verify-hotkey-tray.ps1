@@ -24,7 +24,8 @@
 [CmdletBinding()]
 param(
     [string]$Exe = "$PSScriptRoot\..\bin\Release\net8.0-windows10.0.19041.0\win-x64\BashCommandManager.exe",
-    [int]$StepDelayMs = 800
+    [int]$StepDelayMs = 800,
+    [string]$DbPath = (Join-Path $env:TEMP ("bcm-smoke-" + [guid]::NewGuid().ToString('N') + "\data\app.db"))
 )
 
 $ErrorActionPreference = 'Stop'
@@ -124,8 +125,16 @@ Start-Sleep -Milliseconds 500
 $spec = Get-HotkeySpec
 Write-Step ("热键: Key={0} Modifiers={1}（{2}）" -f $spec.Key, $spec.Modifiers, (Convert-KeyToVirtualKey $spec.Key))
 
-Write-Step "启动应用"
-$proc = Start-Process -FilePath $Exe -PassThru
+Write-Step "启动应用（使用临时数据库，避免触发真实数据迁移）"
+New-Item -ItemType Directory -Path (Split-Path $DbPath) -Force | Out-Null
+$previousDb = $env:BASHCOMMANDMANAGER_DB
+$env:BASHCOMMANDMANAGER_DB = $DbPath
+try {
+    $proc = Start-Process -FilePath $Exe -PassThru
+}
+finally {
+    $env:BASHCOMMANDMANAGER_DB = $previousDb
+}
 try {
     $hwnd = Wait-WindowHandle $proc
 

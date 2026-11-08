@@ -99,6 +99,7 @@ public partial class App : Application
         services.AddScoped<IGroupService, GroupService>();
         services.AddScoped<ICommandService, CommandService>();
         services.AddSingleton<ICommandExecutor, CommandExecutor>();
+        services.AddSingleton<IExecutableLocator, ExecutableLocator>();
 
         // 新增：设置服务（单例）
         services.AddSingleton<ISettingsService>(_ => new SettingsService());

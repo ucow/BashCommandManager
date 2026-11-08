@@ -1,6 +1,6 @@
 ; BashCommandManager 精简安装包 - 不包含 .NET 8 运行时（需要用户已安装）
 #define MyAppName "BashCommandManager"
-#define MyAppVersion "1.2.1"
+#define MyAppVersion "1.3.0"
 #define MyAppPublisher "BashCommandManager"
 #define MyAppURL "https://github.com/ucow/BashCommandManager"
 #define MyAppExeName "BashCommandManager.exe"
@@ -27,16 +27,22 @@ WizardStyle=modern
 PrivilegesRequiredOverridesAllowed=dialog
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
+ChangesEnvironment=yes
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop icon"; GroupDescription: "Additional icons:"; Flags: unchecked
+Name: "addtocli"; Description: "Add bcm CLI to PATH"; GroupDescription: "Command line:"; Flags: unchecked
 
 [Files]
 Source: "Lite\bin\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "Lite\bin\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+[Registry]
+Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}\cli"; Tasks: addtocli; Flags: preservestringtype; Check: UserPathHasValue
+Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{app}\cli"; Tasks: addtocli; Flags: preservestringtype; Check: UserPathIsEmpty
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
@@ -47,6 +53,20 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
 
 [Code]
+function UserPathHasValue(): Boolean;
+var
+  Existing: string;
+begin
+  Result := RegQueryStringValue(HKCU, 'Environment', 'Path', Existing) and (Trim(Existing) <> '');
+end;
+
+function UserPathIsEmpty(): Boolean;
+var
+  Existing: string;
+begin
+  Result := (not RegQueryStringValue(HKCU, 'Environment', 'Path', Existing)) or (Trim(Existing) = '');
+end;
+
 function InitializeSetup(): Boolean;
 var
   ResultCode: Integer;

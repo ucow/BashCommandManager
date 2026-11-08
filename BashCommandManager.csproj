@@ -10,6 +10,7 @@
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <PublishProfile>Properties\PublishProfiles\MSIX.pubxml</PublishProfile>
     <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+    <Version>1.3.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

@@ -43,7 +43,7 @@ public static class RunCommand
                     "在设置窗口的「执行」页关闭「默认以管理员身份运行」");
             }
 
-            settings = WithoutKeepWindowOpen(settings);
+            settings = ForceWaitTerminal(settings);
         }
 
         if (command.HasFlag("dry-run"))
@@ -176,17 +176,16 @@ public static class RunCommand
         }
     }
 
-    // --wait 语义：把「保持窗口打开」用的模板换成关闭模板（仅当模板仍是默认模板）
-    private static ExecutionSettings WithoutKeepWindowOpen(ExecutionSettings settings)
+    // B-2/spec L207：--wait 必须忽略配置终端，强制 cmd.exe + /c 默认模板。
+    // 原因：powershell.exe -Command 会把原生退出码 7 改写成 1；wt.exe 启动新窗口后立即退出，
+    // 等待到的只是启动器；自定义 /k 模板则可能让 WaitForExit 永不返回。
+    private static ExecutionSettings ForceWaitTerminal(ExecutionSettings settings)
     {
         var clone = settings.Clone();
-        var defaultTemplate = TerminalCommandBuilder.GetDefaultTemplate(settings.Terminal, settings.KeepWindowOpen);
-        if (string.IsNullOrWhiteSpace(settings.ArgumentsTemplate)
-            || string.Equals(settings.ArgumentsTemplate, defaultTemplate, StringComparison.Ordinal))
-        {
-            clone.KeepWindowOpen = false;
-            clone.ArgumentsTemplate = string.Empty;
-        }
+        clone.Terminal = TerminalKind.Cmd;
+        clone.CustomExecutablePath = string.Empty;
+        clone.ArgumentsTemplate = string.Empty;
+        clone.KeepWindowOpen = false;
         return clone;
     }
 }

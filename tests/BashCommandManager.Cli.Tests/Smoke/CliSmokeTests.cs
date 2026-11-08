@@ -139,4 +139,25 @@ public class CliSmokeTests
         Assert.Contains("bcm commands export", result.Stdout);
         Assert.Contains("bcm run", result.Stdout);
     }
+
+    [Fact]
+    public void Smoke9_wait_forces_cmd_exit_code_even_when_settings_prefer_windows_powershell()
+    {
+        using var temp = new TempDatabase();
+        var settingsDirectory = temp.CreateDirectory("settings");
+        File.WriteAllText(Path.Combine(settingsDirectory, "settings.json"),
+            "{\"Execution\":{\"Terminal\":1,\"KeepWindowOpen\":true,\"CustomExecutablePath\":\"\",\"ArgumentsTemplate\":\"\",\"RunAsAdministrator\":false}}");
+        var script = temp.CreateScript("fail.cmd", "@echo off\r\nexit /b 7\r\n");
+        Assert.Equal(0, CliProcess.Run(
+            new[] { "commands", "add", "--name", "fail", "--file", script, "--db", temp.DatabasePath, "--json" },
+            settingsDirectory).ExitCode);
+        var id = Json(CliProcess.Run(new[] { "commands", "list", "--db", temp.DatabasePath, "--json" }).Stdout)["data"]![0]!["id"]!.GetValue<int>();
+
+        var result = CliProcess.Run(
+            new[] { "run", id.ToString(), "--wait", "--db", temp.DatabasePath, "--json" }, settingsDirectory);
+
+        // PowerShell 会把原生 7 改写成 1；强制 cmd.exe /c 后 details.exitCode 必须是真实退出码。
+        Assert.Equal(3, result.ExitCode);
+        Assert.Equal(7, Json(result.Stderr)["error"]!["details"]!["exitCode"]!.GetValue<int>());
+    }
 }

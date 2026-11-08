@@ -77,6 +77,65 @@ public class RunCommandTests
         Assert.Equal($"/c \"{arranged.ScriptPath}\"", result.Data!["arguments"]!.GetValue<string>());
     }
 
+    // B-2：--wait 必须忽略配置终端，强制 cmd.exe /c（spec L207），否则 PS 改写退出码、wt 假成功。
+    [Theory]
+    [InlineData(TerminalKind.Cmd)]
+    [InlineData(TerminalKind.WindowsPowerShell)]
+    [InlineData(TerminalKind.PowerShell7)]
+    [InlineData(TerminalKind.WindowsTerminal)]
+    [InlineData(TerminalKind.Custom)]
+    public async Task Wait_forces_cmd_slash_c_for_every_configured_terminal(TerminalKind terminal)
+    {
+        var arranged = await ArrangeAsync(new ExecutionSettings
+        {
+            Terminal = terminal,
+            CustomExecutablePath = @"Z:\tools\custom.exe",
+            ArgumentsTemplate = "/k {file} & echo done",
+            KeepWindowOpen = true
+        });
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        arranged.Locator.Resolver = (kind, _) => kind == TerminalKind.Cmd ? "cmd.exe" : "configured-terminal.exe";
+        arranged.Runner.RunResult = new ProcessRunResult(true, 4321, 0, false);
+        using var services = CliServicesFactory.Create(arranged.Session, arranged.Settings, arranged.Runner, locator: arranged.Locator);
+
+        await RunCommand.ExecuteAsync(
+            Parse("run", arranged.CommandId.ToString(), "--wait"), services, arranged.Store, arranged.Resolver);
+
+        var request = Assert.Single(arranged.Runner.Requests);
+        Assert.Equal("cmd.exe", request.FileName);
+        Assert.Equal($"/c \"{arranged.ScriptPath}\"", request.Arguments);
+        Assert.False(request.UseShellExecute);
+    }
+
+    [Theory]
+    [InlineData(TerminalKind.Cmd)]
+    [InlineData(TerminalKind.WindowsPowerShell)]
+    [InlineData(TerminalKind.PowerShell7)]
+    [InlineData(TerminalKind.WindowsTerminal)]
+    [InlineData(TerminalKind.Custom)]
+    public async Task Wait_dry_run_previews_forced_cmd_for_every_configured_terminal(TerminalKind terminal)
+    {
+        var arranged = await ArrangeAsync(new ExecutionSettings
+        {
+            Terminal = terminal,
+            CustomExecutablePath = @"Z:\tools\custom.exe",
+            ArgumentsTemplate = "/k {file} & echo done",
+            KeepWindowOpen = true
+        });
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        using var services = CliServicesFactory.Create(arranged.Session, arranged.Settings, arranged.Runner, locator: arranged.Locator);
+
+        var result = await RunCommand.ExecuteAsync(
+            Parse("run", arranged.CommandId.ToString(), "--wait", "--dry-run"), services, arranged.Store, arranged.Resolver);
+
+        var data = result.Data!.AsObject();
+        Assert.Equal("cmd.exe", data["fileName"]!.GetValue<string>());
+        Assert.Equal($"/c \"{arranged.ScriptPath}\"", data["arguments"]!.GetValue<string>());
+        Assert.Empty(arranged.Runner.Requests);
+    }
+
     [Fact]
     public async Task Default_run_starts_process_records_execution_and_reports_pid()
     {

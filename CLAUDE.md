@@ -25,6 +25,9 @@ dotnet restore
 # 运行项目
 dotnet run
 
+# 运行单元测试
+dotnet test tests\BashCommandManager.Tests\BashCommandManager.Tests.csproj
+
 # 构建 Release
 dotnet build -c Release
 ```
@@ -111,6 +114,12 @@ SQLite 数据库存储在应用目录 `data/app.db`：
 - Id=0 表示展示所有命令
 - 右键菜单中隐藏新建/重命名/删除选项
 
+#### 6. 终端执行配置
+
+- 全局终端配置存于 `%LOCALAPPDATA%\BashCommandManager\settings.json` 的 `Execution` 段，根对象为 `{ "Hotkey": {...}, "Execution": {...} }`；旧扁平 `{"Enabled":...}` 格式首次保存前自动备份为 `settings.json.v1.bak`。
+- 命令行构造集中在纯函数 `Core/Services/TerminalCommandBuilder.Build`（占位符 `{file}` `{dir}` `{filePs}` `{dirPs}` `{fileRaw}` `{dirRaw}`），可执行文件探测在 `Core/Services/ExecutableLocator`；`CommandExecutor` 只负责 `Process.Start` 与状态回写。
+- wt/pwsh 缺失时降级 cmd 并 Growl 警告；自定义程序缺失时保存被拦截、执行报错但不崩溃；取消 UAC（Win32 1223）时状态回到 `Idle`。
+
 ### 文件组织约定
 
 - **Core/**: 业务逻辑，不依赖 UI
@@ -153,6 +162,7 @@ SQLite 数据库存储在应用目录 `data/app.db`：
 已完成：
 - 分组管理、命令导入执行、系统托盘、单实例启动
 - 多文件导入、确认删除对话框、应用图标
+- 终端可配置（cmd/PowerShell/wt/自定义，settings.json 嵌套格式与旧格式迁移）
 
 待完成：
 - 开机自启动、主题切换

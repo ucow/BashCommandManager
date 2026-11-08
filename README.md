@@ -45,6 +45,12 @@
 - 支持停止正在运行的命令
 - 命令执行状态清晰反馈
 
+### 🖥️ 终端可配置
+- 执行终端可选：命令提示符 (cmd)、Windows PowerShell、PowerShell 7 (pwsh)、Windows Terminal (wt)、自定义程序
+- 参数模板支持占位符：`{file}` `{dir}` `{filePs}` `{dirPs}` `{fileRaw}` `{dirRaw}`
+- 支持「保持窗口打开」与「默认以管理员身份运行」
+- wt / pwsh 未安装时自动降级到 cmd 并提示；自定义程序缺失时拦截保存并给出内联错误
+
 ### 📝 命令管理
 - 添加、编辑、删除命令
 - 自定义命令名称和描述
@@ -231,6 +237,7 @@ BashCommandManager/
 - [x] 批量操作（批量删除、批量移动）
 - [x] 全局快捷键
 - [x] 常用命令
+- [x] 终端可配置（cmd / PowerShell / Windows Terminal / 自定义）
 - [ ] 开机自启动
 - [ ] 主题切换
 

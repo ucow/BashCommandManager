@@ -15,15 +15,22 @@ public static class CliHost
         var wantsJson = args.Any(arg => string.Equals(arg, "--json", StringComparison.Ordinal));
         try
         {
-            if (args.Length == 0 || args.Contains("--help"))
+            var parsed = CommandLineParser.Parse(args);
+            if (parsed.CommandPath == "help")
             {
                 stdout.Write(HelpCatalog.Global());
                 return 0;
             }
 
-            if (args.Contains("--version"))
+            if (parsed.CommandPath.StartsWith("help.", StringComparison.Ordinal))
             {
-                if (wantsJson)
+                stdout.Write(HelpCatalog.For(parsed.CommandPath["help.".Length..]));
+                return 0;
+            }
+
+            if (parsed.CommandPath == "version")
+            {
+                if (parsed.Json)
                 {
                     var payload = new JsonObject { ["version"] = CliVersion.Value };
                     stdout.WriteLine(JsonEnvelope.Serialize(JsonEnvelope.Success(payload, null)));
@@ -35,7 +42,7 @@ public static class CliHost
                 return 0;
             }
 
-            throw CliErrors.Usage($"未知命令: {args[0]}", "用 bcm --help 查看可用命令");
+            throw CliErrors.Usage($"未知命令: {parsed.CommandPath}", "用 bcm --help 查看可用命令");
         }
         catch (CliFailureException ex)
         {

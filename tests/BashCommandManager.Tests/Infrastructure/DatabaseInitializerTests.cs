@@ -156,6 +156,32 @@ public class DatabaseInitializerTests : IDisposable
         }
     }
 
+    [Fact]
+    public void Environment_variable_overrides_database_path()
+    {
+        // I-5（GUI 侧）：CLI 通过子进程环境变量把 --db 传给 GUI，GUI 必须认 BASHCOMMANDMANAGER_DB。
+        var envDatabasePath = Path.Combine(_root, "env", "custom.db");
+        var previous = Environment.GetEnvironmentVariable(DatabasePathResolver.EnvironmentVariableName);
+        Environment.SetEnvironmentVariable(DatabasePathResolver.EnvironmentVariableName, envDatabasePath);
+        try
+        {
+            var initializer = new DatabaseInitializer(
+                settingsDirectory: Path.Combine(_root, "settings"));
+
+            Assert.Equal(envDatabasePath, initializer.DatabasePath);
+            Assert.Equal(DatabasePathSource.Environment, initializer.Source);
+            Assert.Null(initializer.MigrationWarning);
+
+            initializer.Initialize();
+
+            Assert.True(File.Exists(envDatabasePath));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(DatabasePathResolver.EnvironmentVariableName, previous);
+        }
+    }
+
     public void Dispose()
     {
         SQLiteConnection.ClearAllPools();

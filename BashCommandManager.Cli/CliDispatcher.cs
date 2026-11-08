@@ -37,6 +37,7 @@ public static class CliDispatcher
             "commands.import" => CommandCommands.ImportAsync(command, services, store!, resolver!),
             "commands.export" => CommandCommands.ExportAsync(command, services, store!, resolver!),
             "run" => RunCommand.ExecuteAsync(command, services, store!, resolver!),
+            "config.get" => ConfigCommand.GetAsync(command, services),
             _ => throw CliErrors.Usage($"命令尚未接线: {command.CommandPath}")
         };
     }

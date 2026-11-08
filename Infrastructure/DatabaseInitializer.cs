@@ -1,24 +1,35 @@
-using System.Data;
 using System.Data.SQLite;
 using System.IO;
-using System.Reflection;
 
 namespace BashCommandManager.Infrastructure;
 
+/// <summary>数据库初始化：解析路径 → 必要时迁移 → 幂等建表。</summary>
 public class DatabaseInitializer
 {
-    private readonly string _dbPath;
-
-    public DatabaseInitializer()
+    public DatabaseInitializer(string? explicitDatabasePath = null, string? settingsDirectory = null)
     {
-        // 使用 AppContext.BaseDirectory 替代 Assembly.Location，支持单文件发布
-        var appDir = AppContext.BaseDirectory;
-        var dataDir = Path.Combine(appDir, "data");
-        Directory.CreateDirectory(dataDir);
-        _dbPath = Path.Combine(dataDir, "app.db");
+        Resolution = DatabasePathResolver.ResolveForCurrentProcess(explicitDatabasePath, settingsDirectory);
+        var prepared = DatabaseMigrator.Prepare(Resolution);
+        DatabasePath = prepared.DatabasePath;
+        MigrationWarning = prepared.Warning;
+        Source = prepared.Warning is null ? Resolution.Source : DatabasePathSource.LegacyApplicationDirectory;
+
+        var dataDirectory = Path.GetDirectoryName(DatabasePath);
+        if (!string.IsNullOrEmpty(dataDirectory))
+        {
+            Directory.CreateDirectory(dataDirectory);
+        }
     }
 
-    public string ConnectionString => $"Data Source={_dbPath};Version=3;";
+    public string DatabasePath { get; }
+
+    public string? MigrationWarning { get; }
+
+    public DatabasePathSource Source { get; }
+
+    public DatabasePathResolution Resolution { get; }
+
+    public string ConnectionString => $"Data Source={DatabasePath};Version=3;Foreign Keys=True;";
 
     public void Initialize()
     {

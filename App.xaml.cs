@@ -42,6 +42,10 @@ public partial class App : Application
 
         // 初始化数据库
         var initializer = new DatabaseInitializer();
+        if (initializer.MigrationWarning is not null)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Database] {initializer.MigrationWarning}");
+        }
         initializer.Initialize();
 
         // 注册数据库服务

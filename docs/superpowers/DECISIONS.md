@@ -47,7 +47,7 @@
 
 1. CLI **不链接** `CommandExecutor.cs`、`CommandService.cs`、`SettingsService.cs`、`HotkeySettings.cs`、`SingleInstanceService.cs`、`GlobalHotkeyService.cs`。
 2. CLI 的 `run` 子命令自行实现启动逻辑（`--wait`/`--timeout`/`--admin`/`--dry-run` 语义本来就与 GUI 不同）。
-3. CLI 可链接（均为 WPF-free）：`Core/Models/Command.cs`、`Group.cs`、`SortOptions.cs`、`TerminalKind.cs`、`ExecutionSettings.cs`、`Core/Repositories/*.cs`、`Core/Services/DatabaseService.cs`、`GroupService.cs`、`TerminalCommandBuilder.cs`、`ExecutableLocator.cs`、`Infrastructure/DatabaseInitializer.cs`、`Infrastructure/DatabasePathResolver.cs`。
+3. CLI 可链接（均为 WPF-free）：`Core/Models/Command.cs`、`Group.cs`、`SortOptions.cs`、`TerminalKind.cs`、`ExecutionSettings.cs`、`TerminalLaunchPlan.cs`、`Core/Services/TerminalCommandBuilder.cs`、`ExecutionResult.cs`（含 `ExecutionOptions`/`ExecutionResult` 记录）、`ExecutableLocator.cs`、`Core/Repositories/*.cs`、`DatabaseService.cs`、`GroupService.cs`、`Infrastructure/DatabaseInitializer.cs`、`Infrastructure/DatabasePathResolver.cs`。
 4. `Command.cs`/`Group.cs` 依赖 `CommunityToolkit.Mvvm`（`ObservableObject`），CLI 项目必须显式引用 `CommunityToolkit.Mvvm 8.2.2`、`Dapper 2.1.35`、`System.Data.SQLite.Core 1.0.115.5`，否则链接编译失败。`--dry-run` 的命令行构造必须复用 `TerminalCommandBuilder`，保证与 GUI 同源。
 5. CLI 读取 `settings.json` 时用 `JsonNode` 直接读 `Execution` 段并映射为 `ExecutionSettings`（不引用 `AppSettings`，因为后者含 WPF 的 `HotkeySettings`）。
 

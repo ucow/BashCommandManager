@@ -15,6 +15,9 @@ public sealed class FakeGlobalHotkeyService : IGlobalHotkeyService
 
     public bool UnregisterCalled { get; private set; }
 
+    /// <summary>测试钩子：注销时触发，用于断言「先落盘再注销」的顺序。</summary>
+    public Action? OnUnregister { get; set; }
+
     public bool IsRegistered { get; private set; }
 
     public event EventHandler? HotkeyPressed;
@@ -36,6 +39,7 @@ public sealed class FakeGlobalHotkeyService : IGlobalHotkeyService
     {
         UnregisterCalled = true;
         IsRegistered = false;
+        OnUnregister?.Invoke();
     }
 
     public void Dispose()

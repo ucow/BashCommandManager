@@ -2,6 +2,7 @@ using BashCommandManager.Core.Models;
 using BashCommandManager.Core.Services;
 using BashCommandManager.Tests.Fakes;
 using BashCommandManager.ViewModels;
+using System.IO;
 using System.Windows.Input;
 using Xunit;
 
@@ -173,5 +174,137 @@ public class SettingsViewModelTests
         Assert.True(viewModel.HasError);
         Assert.Equal("快捷键设置无效", viewModel.ErrorMessage);
         Assert.Equal(0, settings.SaveHotkeyCalls);
+    }
+
+    [Fact]
+    public void Reload_丢弃未保存编辑并恢复服务值()
+    {
+        var settings = new FakeSettingsService
+        {
+            Hotkey = new HotkeySettings
+            {
+                Enabled = true,
+                Key = Key.T,
+                Modifiers = ModifierKeys.Control | ModifierKeys.Shift
+            },
+            Execution = new ExecutionSettings
+            {
+                Terminal = TerminalKind.Cmd,
+                ArgumentsTemplate = "/k {file}",
+                KeepWindowOpen = true
+            }
+        };
+        var viewModel = CreateViewModel(settings);
+
+        // 模拟取消前未保存的编辑。
+        viewModel.HotkeySettings.Key = Key.F9;
+        viewModel.Terminal = TerminalKind.WindowsTerminal;
+        viewModel.CustomExecutablePath = @"D:\tmp\term.exe";
+        viewModel.KeepWindowOpen = false;
+        viewModel.ArgumentsTemplate = "-d {dir} cmd.exe /c {file}";
+        viewModel.HasError = true;
+        viewModel.ErrorMessage = "上次编辑留下的错误";
+
+        viewModel.Reload();
+
+        Assert.Equal(Key.T, viewModel.HotkeySettings.Key);
+        Assert.Equal(ModifierKeys.Control | ModifierKeys.Shift, viewModel.HotkeySettings.Modifiers);
+        Assert.Equal("Ctrl+Shift+T", viewModel.HotkeySettingsDisplay);
+        Assert.Equal(TerminalKind.Cmd, viewModel.Terminal);
+        Assert.Equal(string.Empty, viewModel.CustomExecutablePath);
+        Assert.True(viewModel.KeepWindowOpen);
+        Assert.False(viewModel.RunAsAdministrator);
+        Assert.Equal("/k {file}", viewModel.ArgumentsTemplate);
+        Assert.False(viewModel.IsCustomTerminal);
+        Assert.False(viewModel.HasError);
+        Assert.Equal(string.Empty, viewModel.ErrorMessage);
+    }
+
+    [Fact]
+    public void 保存_快捷键冲突_执行设置仍保存且提示未更改()
+    {
+        var settings = new FakeSettingsService();
+        var hotkey = new FakeGlobalHotkeyService
+        {
+            UpdateResult = new HotkeyRegistrationResult(
+                HotkeyRegistrationStatus.Conflict,
+                Key.B,
+                ModifierKeys.Control | ModifierKeys.Alt)
+        };
+        var viewModel = CreateViewModel(settings, hotkey);
+        viewModel.Terminal = TerminalKind.WindowsTerminal;
+
+        viewModel.SaveCommand.Execute(null);
+
+        Assert.Equal(1, settings.SaveExecutionCalls);
+        Assert.Equal(TerminalKind.WindowsTerminal, settings.Execution.Terminal);
+        Assert.Equal(0, settings.SaveHotkeyCalls);
+        Assert.True(viewModel.HasError);
+        Assert.Contains("执行设置已保存，快捷键未更改", viewModel.ErrorMessage);
+    }
+
+    [Fact]
+    public void 保存_关闭快捷键_先落盘再注销()
+    {
+        var settings = new FakeSettingsService();
+        var hotkey = new FakeGlobalHotkeyService();
+        var viewModel = CreateViewModel(settings, hotkey);
+        viewModel.HotkeySettings.Enabled = false;
+
+        var hotkeyPersisted = false;
+        settings.OnSaveHotkey = saved =>
+        {
+            hotkeyPersisted = true;
+            Assert.False(saved.Enabled);
+        };
+        hotkey.OnUnregister = () =>
+            Assert.True(hotkeyPersisted, "必须先保存 Enabled=false 再注销热键");
+
+        viewModel.SaveCommand.Execute(null);
+
+        Assert.True(hotkeyPersisted);
+        Assert.True(hotkey.UnregisterCalled);
+        Assert.Equal(1, settings.SaveHotkeyCalls);
+        Assert.Equal(1, settings.SaveExecutionCalls);
+        Assert.False(settings.Hotkey.Enabled);
+        Assert.False(viewModel.HasError);
+    }
+
+    [Fact]
+    public void 保存_关闭快捷键_热键落盘失败时保持注册()
+    {
+        var settings = new FakeSettingsService
+        {
+            SaveHotkeyError = new IOException("磁盘已满")
+        };
+        var hotkey = new FakeGlobalHotkeyService();
+        var viewModel = CreateViewModel(settings, hotkey);
+        viewModel.HotkeySettings.Enabled = false;
+
+        viewModel.SaveCommand.Execute(null);
+
+        Assert.False(hotkey.UnregisterCalled);
+        Assert.True(viewModel.HasError);
+        Assert.Contains("执行设置已保存，快捷键设置未保存", viewModel.ErrorMessage);
+        Assert.Contains("磁盘已满", viewModel.ErrorMessage);
+    }
+
+    [Fact]
+    public void 保存_执行设置落盘失败时不注册也不注销热键()
+    {
+        var settings = new FakeSettingsService
+        {
+            SaveExecutionError = new IOException("磁盘已满")
+        };
+        var hotkey = new FakeGlobalHotkeyService();
+        var viewModel = CreateViewModel(settings, hotkey);
+        viewModel.HotkeySettings.Enabled = false;
+
+        viewModel.SaveCommand.Execute(null);
+
+        Assert.False(hotkey.UnregisterCalled);
+        Assert.Equal(0, settings.SaveHotkeyCalls);
+        Assert.True(viewModel.HasError);
+        Assert.Contains("执行设置保存失败", viewModel.ErrorMessage);
     }
 }

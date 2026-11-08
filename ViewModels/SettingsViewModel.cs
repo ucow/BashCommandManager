@@ -63,22 +63,41 @@ public partial class SettingsViewModel : ObservableObject
         _settingsService = settingsService;
         _hotkeyService = hotkeyService;
 
-        HotkeySettings = _settingsService.GetHotkeySettings().Clone();
+        Reload();
+    }
 
-        var execution = _settingsService.GetExecutionSettings().Clone();
-        _terminal = Enum.IsDefined(execution.Terminal) ? execution.Terminal : TerminalKind.Cmd;
-        _customExecutablePath = execution.CustomExecutablePath ?? string.Empty;
-        _keepWindowOpen = execution.KeepWindowOpen;
-        _runAsAdministrator = execution.RunAsAdministrator;
-        _argumentsTemplate = string.IsNullOrWhiteSpace(execution.ArgumentsTemplate)
-            ? TerminalCommandBuilder.GetDefaultTemplate(_terminal, _keepWindowOpen)
+    /// <summary>
+    /// 从设置服务重新读取一份编辑快照。本 VM 由根容器解析、实际是单例，
+    /// 设置窗口每次 Loaded 都调用一次，避免「取消后重开仍显示上次未保存的编辑值」。
+    /// </summary>
+    public void Reload()
+    {
+        HotkeySettings = _settingsService.GetHotkeySettings().Clone();
+        ApplyExecutionSettings(_settingsService.GetExecutionSettings().Clone());
+
+        HasError = false;
+        ErrorMessage = string.Empty;
+    }
+
+    private void ApplyExecutionSettings(ExecutionSettings execution)
+    {
+        // 载入期间关闭模板联动，避免 Terminal/KeepWindowOpen 的 setter 把读回来的模板改成别的默认值。
+        _templateIsDefault = false;
+
+        Terminal = Enum.IsDefined(execution.Terminal) ? execution.Terminal : TerminalKind.Cmd;
+        CustomExecutablePath = execution.CustomExecutablePath ?? string.Empty;
+        KeepWindowOpen = execution.KeepWindowOpen;
+        RunAsAdministrator = execution.RunAsAdministrator;
+        ArgumentsTemplate = string.IsNullOrWhiteSpace(execution.ArgumentsTemplate)
+            ? TerminalCommandBuilder.GetDefaultTemplate(Terminal, KeepWindowOpen)
             : execution.ArgumentsTemplate.Trim();
         _templateIsDefault = string.Equals(
-            _argumentsTemplate,
-            TerminalCommandBuilder.GetDefaultTemplate(_terminal, _keepWindowOpen),
+            ArgumentsTemplate,
+            TerminalCommandBuilder.GetDefaultTemplate(Terminal, KeepWindowOpen),
             StringComparison.Ordinal);
 
-        UpdateDisplayString();
+        // 属性 setter 只在值变化时通知；这里统一补一次，保证 Reload 后 UI 一定刷新。
+        OnPropertyChanged(nameof(IsCustomTerminal));
     }
 
     partial void OnHotkeySettingsChanged(HotkeySettings value) => UpdateDisplayString();
@@ -161,11 +180,7 @@ public partial class SettingsViewModel : ObservableObject
                 {
                     ErrorMessage = "原快捷键恢复失败，可能已被其他程序占用（保存时会重新注册）";
                     HasError = true;
-                    Growl.Warning(new GrowlInfo
-                    {
-                        Message = "原快捷键恢复失败，可能已被其他程序占用（保存时会重新注册）",
-                        WaitTime = 5
-                    });
+                    ShowWarning(ErrorMessage);
                 }
             }
         }
@@ -229,42 +244,6 @@ public partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        if (HotkeySettings.Enabled)
-        {
-            // 先注册成功，再落盘：冲突时旧组合继续生效，settings.json 不被改写。
-            var result = _hotkeyService.UpdateHotkey(HotkeySettings.Key, HotkeySettings.Modifiers);
-            if (!result.IsSuccess)
-            {
-                // 分档文案：只有 Conflict（1409）才值得让用户去关别的程序；
-                // InvalidCombination / HostUnavailable 是组合本身无效或宿主不可用，
-                // 统一说「已被占用」会让用户永远修不好。三条分支都不落盘。
-                var message = result.Status switch
-                {
-                    HotkeyRegistrationStatus.Conflict =>
-                        "快捷键更新失败，可能已被其他程序占用（已保留原快捷键）",
-                    HotkeyRegistrationStatus.InvalidCombination =>
-                        "快捷键无效或系统不可用（已保留原快捷键）",
-                    HotkeyRegistrationStatus.HostUnavailable =>
-                        "快捷键无效或系统不可用（已保留原快捷键）",
-                    _ => "快捷键更新失败（已保留原快捷键）"
-                };
-
-                ErrorMessage = message;
-                HasError = true;
-                Growl.Warning(new GrowlInfo
-                {
-                    Message = message,
-                    WaitTime = 5
-                });
-                return;
-            }
-        }
-        else
-        {
-            // 用户主动关闭启用开关：这是唯一由用户意图触发的注销。
-            _hotkeyService.Unregister();
-        }
-
         var execution = new ExecutionSettings
         {
             Terminal = Terminal,
@@ -274,22 +253,50 @@ public partial class SettingsViewModel : ObservableObject
             RunAsAdministrator = RunAsAdministrator
         };
 
+        // 执行设置与热键是两个独立失败域：先落盘执行设置，快捷键注册失败不能阻断它。
         try
         {
-            // 传克隆体，避免服务内的内存配置与界面编辑副本互为别名（#8 Task 9 的语义）。
-            _settingsService.SaveHotkeySettings(HotkeySettings.Clone());
             _settingsService.SaveExecutionSettings(execution);
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"设置保存失败：{ex.Message}";
-            HasError = true;
-            Growl.Error(new GrowlInfo
-            {
-                Message = $"设置保存失败：{ex.Message}",
-                WaitTime = 5
-            });
+            ShowSaveFailure($"执行设置保存失败：{ex.Message}");
             return;
+        }
+
+        if (HotkeySettings.Enabled)
+        {
+            // 先注册成功，再落盘：冲突时旧组合继续生效，settings.json 的热键段不被改写。
+            var result = _hotkeyService.UpdateHotkey(HotkeySettings.Key, HotkeySettings.Modifiers);
+            if (!result.IsSuccess)
+            {
+                var reason = result.Status switch
+                {
+                    HotkeyRegistrationStatus.Conflict => "可能已被其他程序占用",
+                    HotkeyRegistrationStatus.InvalidCombination => "组合无效或系统不可用",
+                    HotkeyRegistrationStatus.HostUnavailable => "组合无效或系统不可用",
+                    _ => "注册失败"
+                };
+
+                ShowSaveFailure($"执行设置已保存，快捷键未更改（{reason}）");
+                return;
+            }
+        }
+
+        try
+        {
+            _settingsService.SaveHotkeySettings(HotkeySettings.Clone());
+        }
+        catch (Exception ex)
+        {
+            ShowSaveFailure($"执行设置已保存，快捷键设置未保存：{ex.Message}");
+            return;
+        }
+
+        if (!HotkeySettings.Enabled)
+        {
+            // 用户主动关闭启用开关：先成功落盘再注销；写盘失败时保持原热键，避免内存/磁盘不一致。
+            _hotkeyService.Unregister();
         }
 
         // 成功路径必须复位：本 VM 由根容器解析、实际是单例，否则下次打开设置页还挂着旧红字。
@@ -298,11 +305,47 @@ public partial class SettingsViewModel : ObservableObject
 
         window?.Close();
 
-        Growl.Success(new GrowlInfo
+        ShowSuccess("设置已保存");
+    }
+
+    private void ShowSaveFailure(string message)
+    {
+        ErrorMessage = message;
+        HasError = true;
+        ShowWarning(message);
+    }
+
+    private static void ShowWarning(string message)
+    {
+        try
         {
-            Message = "设置已保存",
-            WaitTime = 3
-        });
+            Growl.Warning(new GrowlInfo
+            {
+                Message = message,
+                WaitTime = 5
+            });
+        }
+        catch (Exception ex)
+        {
+            // 无 UI 容器（单测/宿主未初始化）时通知失败不能影响保存逻辑。
+            Debug.WriteLine($"显示设置告警失败: {ex.Message}");
+        }
+    }
+
+    private static void ShowSuccess(string message)
+    {
+        try
+        {
+            Growl.Success(new GrowlInfo
+            {
+                Message = message,
+                WaitTime = 3
+            });
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"显示设置成功提示失败: {ex.Message}");
+        }
     }
 
     [RelayCommand]

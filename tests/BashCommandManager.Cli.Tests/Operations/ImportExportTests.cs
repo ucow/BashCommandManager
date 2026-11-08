@@ -285,4 +285,45 @@ public class ImportExportTests
         var bytes = File.ReadAllBytes(output);
         Assert.False(bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF);
     }
+
+    // I-2：CSV 公式注入：以 = + - @ \t 开头的文本单元格必须前置 '，Excel 才会当文本。
+    [Theory]
+    [InlineData("=1+1")]
+    [InlineData("-2")]
+    [InlineData("@x")]
+    [InlineData("+cmd")]
+    [InlineData("\tTAB")]
+    public async Task Export_csv_neutralizes_formula_prefixes(string name)
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        await arranged.Store.CreateCommandAsync(new Command { Name = name, FilePath = @"D:\a.bat", GroupId = 1 });
+        var output = Path.Combine(arranged.Temp.Root, "formula.csv");
+        using var services = CliServicesFactory.Create(arranged.Session);
+
+        await CommandCommands.ExportAsync(
+            Parse("commands", "export", "--format", "csv", "--output", output), services, arranged.Store, arranged.Resolver);
+
+        var lines = File.ReadAllLines(output);
+        Assert.Contains(",'" + name + ",", lines[1]);
+        Assert.DoesNotContain("," + name + ",", lines[1]);
+    }
+
+    [Fact]
+    public async Task Export_csv_neutralizes_formula_inside_quoted_cell()
+    {
+        var arranged = await ArrangeAsync();
+        using var _ = arranged.Temp;
+        using var __ = arranged.Session;
+        await arranged.Store.CreateCommandAsync(new Command { Name = "=1,1", FilePath = @"D:\a.bat", GroupId = 1 });
+        var output = Path.Combine(arranged.Temp.Root, "formula-quoted.csv");
+        using var services = CliServicesFactory.Create(arranged.Session);
+
+        await CommandCommands.ExportAsync(
+            Parse("commands", "export", "--format", "csv", "--output", output), services, arranged.Store, arranged.Resolver);
+
+        var lines = File.ReadAllLines(output);
+        Assert.Contains("\"'=1,1\"", lines[1]);
+    }
 }

@@ -398,6 +398,13 @@ public static class CommandCommands
 
     private static string EscapeCsv(string value)
     {
+        // I-2：CSV 公式注入中和。Excel 会忽略引号直接执行 = + - @ \t 开头的单元格，
+        // 必须先加 ' 前缀让 Excel 当作文本，再按 RFC4180 决定是否加引号。
+        if (value.Length > 0 && value[0] is '=' or '+' or '-' or '@' or '\t')
+        {
+            value = "'" + value;
+        }
+
         if (value.IndexOfAny(new[] { ',', '"', '\r', '\n' }) < 0)
         {
             return value;
